@@ -15,14 +15,6 @@ const reseEmailValidator = (req, res, next) => {
       .json({ status: false, message: "Invalid email format" });
   }
 
-  if (!passwordRegex.test(password)) {
-    return res.status(400).json({
-      status: false,
-      message:
-        "Password must be at least 8 characters long and contain both letters and numbers",
-    });
-  }
-
   next();
 };
 

@@ -4,8 +4,9 @@ const sendResetLink = async (email, resetToken) => {
   // 1. Configure your email transporter
   // Replace these placeholders with your actual SMTP details (SendGrid, Mailgun, Gmail, Mailtrap, etc.)
   const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || "smtp.mailtrap.io", 
-    port: process.env.EMAIL_PORT || 2525,
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
+    secure: false, // false for port 587
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -13,12 +14,12 @@ const sendResetLink = async (email, resetToken) => {
   });
 
   // 2. Define your backend routing URL where the token is sent
-  const resetLink = `${process.env.RESET_BACKEND_URL}/api/auth/realResetPassword?token=${resetToken}`;
-  const companyName = "YourCompany Inc.";
+  const resetLink = `${process.env.RESET_BACKEND_URL}?token=${resetToken}`;
+  const companyName = "AYD ask your database V2";
 
   // 3. Compose the HTML email template
   const mailOptions = {
-    from: `"${companyName} Support" <noreply@yourcompany.com>`,
+    from: `"${companyName} Support"`,
     to: email,
     subject: "Reset Your Password",
     html: `
@@ -59,7 +60,7 @@ const sendResetLink = async (email, resetToken) => {
     `,
   };
 
-  // 4. Fire off the email! 
+  // 4. Fire off the email!
   // (Since your main controller uses .catch(), returning the promise lets errors bubble up naturally)
   return transporter.sendMail(mailOptions);
 };

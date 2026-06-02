@@ -3,11 +3,13 @@ const express = require('express');
 const app = express();
 const morgan = require("morgan");
 const authRoutes = require('./routes/auth');
+const cors = require("cors");
 
 
 const port = process.env.PORT || 5000;
 
 
+app.use(cors()); // Allow requests from localhost:3000 securely must be changed in production
 app.use(morgan("dev"));
 app.use(express.json());
 
