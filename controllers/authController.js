@@ -1,26 +1,67 @@
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
-const register = (req, res) => {
-    // Implementation for user registration
-    // validate input
-    //check if user already exists
-    //hash password
-    //save user to database
-    //generate JWT token
-    //return response with user data and token
+const { getUser, registerUser } = require("../models/userModel");
 
-    
+const register = async (req, res) => {
+  // Implementation for user registration
+  // ### validate input
+  // ### check if user already exists
+  // ### hash password
+  // ### save user to database
+  // ### generate JWT token
+  // ### return response with user data and token
+
+  const { userName, email, password } = req.body;
+  try {
+    const existingUser = await getUser(email);
+    if (existingUser) {
+      return res
+        .status(400)
+        .json({ status: false, message: "User already exist" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 11);
+
+    const registerdUser = await registerUser({
+      userName,
+      email,
+      password: hashedPassword,
+    });
+
+    if (registerdUser) {
+      const token = await jwt.sign(
+        {
+          userId: registerdUser.id,
+        },
+        process.env.JWT_SECRET_KEY,
+        {
+          expiresIn: "7d",
+        },
+      );
+      //the message content should be changed to the appropriate datas
+      return res
+        .status(200)
+        .json({ status: true, message: { message: "welcome", token } });
+    }
+  } catch (error) {
+    console.log(error);
+    return res
+      .status(500)
+      .json({ status: "false", message: "Server Error please try later" });
+  }
 };
 
 const login = (req, res) => {
-    // Implementation for user login
-    // validate input
-    //check if user exists
-    //compare passwords
-    //generate JWT token
-    //return response with user data and token
+  // Implementation for user login
+  // validate input
+  //check if user exists
+  //compare passwords
+  //generate JWT token
+  //return response with user data and token
 };
 
 module.exports = {
-    register,
-    login
+  register,
+  login,
 };
