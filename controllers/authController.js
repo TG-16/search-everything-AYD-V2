@@ -11,6 +11,8 @@ const register = async (req, res) => {
   // ### save user to database
   // ### generate JWT token
   // ### return response with user data and token
+  // save the id to the memory with workspace related
+  // save the limit and plan to the memory
 
   const { userName, email, password } = req.body;
   try {
@@ -48,17 +50,56 @@ const register = async (req, res) => {
     console.log(error);
     return res
       .status(500)
-      .json({ status: "false", message: "Server Error please try later" });
+      .json({ status: false, message: "Server Error please try later" });
   }
 };
 
-const login = (req, res) => {
+const login = async (req, res) => {
   // Implementation for user login
-  // validate input
-  //check if user exists
-  //compare passwords
-  //generate JWT token
-  //return response with user data and token
+  // ### validate input
+  // ### check if user exists
+  // ### compare passwords
+  // ### generate JWT token
+  // ### return response with user data and token
+  // save the id to the memory with workspace related
+  // save the limit and plan to the memory
+
+  const { email, password } = req.body;
+
+  try {
+    const user = await getUser(email);
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid credintials" });
+    }
+
+    if (!(await bcrypt.compare(password, user.password))) {
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid credintials" });
+    }
+
+    const token = await jwt.sign(
+      {
+        userId: user.id,
+      },
+      process.env.JWT_SECRET_KEY,
+      {
+        expiresIn: "7d",
+      },
+    );
+    //the message content should be changed to the appropriate datas
+    return res
+      .status(200)
+      .json({ status: true, message: { message: "welcome", token } });
+  } catch (error) {
+    console.log(error);
+    return res
+      .status(500)
+      .json({ status: false, message: "Server Error please try later" });
+  }
 };
 
 module.exports = {

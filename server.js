@@ -8,6 +8,8 @@ const port = process.env.PORT || 5000;
 
 app.use(express.json());
 
+// load all api keys to the memory on sever starts
+
 app.use('/api/auth', authRoutes);
 
 
