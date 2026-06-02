@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const {
+  initiateGoogleAuth,
+  handleGoogleCallback,
   register,
   login,
   resetPassword,
@@ -16,6 +18,12 @@ const {
 router.post("/register", registerValidation, register);
 router.post("/login", loginValidation, login);
 router.post("/restPassword", reseEmailValidator, resetPassword);
-router.post("/realResetPassword", resetPasswordValidator, realResetPassword)
+router.post("/realResetPassword", resetPasswordValidator, realResetPassword);
+
+// When users click "Login with Google", your frontend points here:
+router.get("/google", initiateGoogleAuth);
+
+// This must EXACTLY match the GOOGLE_REDIRECT_URL you put in your Google Console:
+router.get("/google/callback", handleGoogleCallback);
 
 module.exports = router;

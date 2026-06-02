@@ -12,18 +12,19 @@ const getUser = async (email) => {
   return rows[0] || null;
 };
 
-const registerUser = async ({ userName, email, password }) => {
+const registerUser = async ({ userName, email, password, auth_provider }) => {
   const query = `
     INSERT INTO users (
       name,
       email,
-      password
+      password,
+      auth_provider
     )
-    VALUES ($1, $2, $3)
+    VALUES ($1, $2, $3, $4)
     RETURNING id, name, email;
   `;
 
-  const values = [userName, email, password];
+  const values = [userName, email, password, auth_provider];
 
   const { rows } = await db.query(query, values);
 

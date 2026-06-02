@@ -1,5 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
 
 const {
   getUser,
@@ -7,6 +8,93 @@ const {
   updateUserPassword,
 } = require("../models/userModel");
 const sendResetLink = require("../utils/sendEmaill");
+
+// Initialize Google OAuth Client with Secret and Redirect URL
+const googleClient = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URL,
+);
+
+// =========================================================
+// STEP 1: Redirect the user to Google's Consent Screen
+// =========================================================
+const initiateGoogleAuth = (req, res) => {
+  // Generate the URL the user needs to visit to log in with Google
+  const url = googleClient.generateAuthUrl({
+    access_type: "offline", // Gives you a refresh token if you need it later
+    scope: [
+      "https://www.googleapis.com/auth/userinfo.profile", // To get their name
+      "https://www.googleapis.com/auth/userinfo.email", // To identify them
+    ],
+  });
+
+  // Send the user directly to Google
+  return res.redirect(url);
+};
+
+// =========================================================
+// STEP 2: Handle the Callback from Google
+// =========================================================
+const handleGoogleCallback = async (req, res) => {
+  // Google appends a ?code=XYZ query parameter to this URL
+  const { code } = req.query;
+
+  if (!code) {
+    return res
+      .status(400)
+      .json({ status: false, message: "Authorization code missing" });
+  }
+
+  try {
+    // Exchange the temporary code for access and ID tokens
+    const { tokens } = await googleClient.getToken(code);
+    googleClient.setCredentials(tokens);
+
+    // Verify the ID token contained in the response to get user details
+    const ticket = await googleClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { name, email } = payload;
+
+    // Check if user exists, if not register them
+    let user = await getUser(email);
+
+    if (!user) {
+      const randomPassword = crypto.randomBytes(16).toString("hex");
+      const hashedPassword = await bcrypt.hash(randomPassword, 11);
+
+      user = await registerUser({
+        userName: name,
+        email,
+        password: hashedPassword,
+        auth_provider: "google"
+      });
+    }
+
+    // Generate your application's regular session JWT token
+    const appToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET_KEY, {
+      expiresIn: "7d",
+    });
+
+    // CRITICAL: Because this is a browser redirect, you cannot send a JSON response.
+    // Instead, redirect the user back to your frontend dashboard/login page
+    // and pass your app's token via a query parameter.
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/auth-success?token=${appToken}&name=${name}`,
+    );
+  } catch (error) {
+    console.error("Google Callback Error:", error);
+    // Redirect to frontend error page if something breaks
+    //******************************************************
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/login?error=google_auth_failed`,
+    );
+  }
+};
 
 const register = async (req, res) => {
   // Implementation for user registration
@@ -34,6 +122,7 @@ const register = async (req, res) => {
       userName,
       email,
       password: hashedPassword,
+      auth_provider: "local"
     });
 
     if (registerdUser) {
@@ -218,6 +307,8 @@ const realResetPassword = async (req, res) => {
 };
 
 module.exports = {
+  initiateGoogleAuth,
+  handleGoogleCallback,
   register,
   login,
   resetPassword,
