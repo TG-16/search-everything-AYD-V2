@@ -8,7 +8,7 @@ const getUser = async (email) => {
     LIMIT 1;
   `;
   const values = [email];
-  const { rows } = await pool.query(query, values);
+  const { rows } = await db.query(query, values);
   return rows[0] || null;
 };
 
@@ -25,12 +25,28 @@ const registerUser = async ({ userName, email, password }) => {
 
   const values = [userName, email, password];
 
-  const { rows } = await pool.query(query, values);
+  const { rows } = await db.query(query, values);
 
   return rows[0];
+};
+
+const updateUserPassword = async (id, hashedPassword) => {
+  const query = `
+    UPDATE users
+    SET password = $1
+    WHERE id = $2
+    RETURNING id;
+  `;
+  const values = [hashedPassword, id];
+
+  const { rows } = await db.query(query, values);
+
+  // Returns true if a row was updated, false if the user ID wasn't found
+  return rows.length > 0;
 };
 
 module.exports = {
   getUser,
   registerUser,
+  updateUserPassword,
 };
