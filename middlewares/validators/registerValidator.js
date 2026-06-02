@@ -9,7 +9,7 @@ module.exports = (req, res, next) => {
       .json({ status: false, message: "All fields are required" });
   }
 
-  if (!userName.isString()) {
+  if (typeof userName !== "string") {
     return res
       .status(400)
       .json({ status: false, message: "Username must be a string" });
