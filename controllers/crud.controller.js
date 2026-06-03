@@ -1,9 +1,9 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { use } = require("../routes/auth.route");
-const { createWorkspace } = require("../models/crud.model");
+const { createWorkspace, createTable } = require("../models/crud.model");
 
-const workspace = (req, res) => {
+const workspace = async (req, res) => {
   // get the user id and wokspace name
   // create a workspace workspace name + userid as a name
   // return success with workspace id
@@ -22,6 +22,27 @@ const workspace = (req, res) => {
   }
 };
 
+
+const tableCreation = async (req, res) => {
+    // get workerspaceId and table name
+    // create a table with tablename + workerspaceId as a name
+    // return table id
+
+    const { workspaceId, tableName } = req.body;
+
+    try {
+
+        const table = await createTable({workspaceId, tableName});
+
+        return res.status(200).json({status: true, message: {tableId: table.id}});
+
+    } catch (error) {
+    console.error("table creation error:", error);
+    return res.status(500).json({ status: false, message: "Invalid workerspace id or Internal Server Error please try later" });
+  }
+}
+
 module.exports = {
   workspace,
+  tableCreation,
 };
