@@ -5,6 +5,7 @@ const app = express();
 const morgan = require("morgan");
 const authRoutes = require('./routes/auth.route');
 const crudRoutes = require('./routes/crud.route');
+const startEmbeddingWorker = require("./utils/embadingWorker");
 
 
 const port = process.env.PORT || 5000;
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/crud', crudRoutes);
 
+startEmbeddingWorker();
 
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);

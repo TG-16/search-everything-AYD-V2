@@ -6,6 +6,7 @@ const {
   createWorkspace,
   createTable,
   addColumns,
+  insertData,
 } = require("../models/crud.model");
 
 const workspace = async (req, res) => {
@@ -34,6 +35,7 @@ const tableCreation = async (req, res) => {
   const { workspaceId, tableName } = req.body;
 
   try {
+    // Basic validation
     if (!workspaceId || !tableName) {
       return res.status(400).json({
         status: false,
@@ -48,14 +50,15 @@ const tableCreation = async (req, res) => {
       });
     }
 
-    // Table names cannot be parameterized, so validate them.
+    // Table names cannot be parameterized, so strict regex validation is required
     if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
       return res.status(400).json({
         status: false,
-        message: "Invalid table name",
+        message: "Invalid table name. Only alphanumeric characters and underscores are allowed.",
       });
     }
 
+    // Execute table creation and trigger attachment
     const table = await createTable({
       workspaceId,
       tableName,
@@ -67,9 +70,11 @@ const tableCreation = async (req, res) => {
         tableId: table.table_id,
       },
     });
+    
   } catch (error) {
-    console.error("table creation error:", error);
+    console.error("Table creation error:", error);
 
+    // Handle foreign key violation (e.g., workspace_id doesn't exist in the workspaces table)
     if (error.code === "23503") {
       return res.status(404).json({
         status: false,
@@ -83,7 +88,6 @@ const tableCreation = async (req, res) => {
     });
   }
 };
-
 const addColumn = async (req, res) => {
   const { tableName, workspaceId, columns } = req.body;
 
@@ -130,8 +134,57 @@ const addColumn = async (req, res) => {
     console.error("DB Alteration Error:", error);
     return res.status(500).json({
       status: false,
-      message:
-        "Database schema update failed. Verify table existence and layout parameters.",
+      message: {
+        message:
+          "Database schema update failed. Verify table existence and layout parameters.",
+        error,
+      },
+    });
+  }
+};
+
+
+
+const addData = async (req, res) => {
+  const { tableName, workspaceId, data } = req.body;
+
+  // 1. Authorization validation
+  if (!isUUID(workspaceId)) {
+    return res
+      .status(400)
+      .json({ status: false, message: "Invalid workspace" });
+  }
+
+  // Basic payload validation
+  if (!tableName || !workspaceId || !data) {
+    return res.status(400).json({ status: false, message: "Missing required fields (tableName, workspaceId, data)" });
+  }
+
+  try {
+    // 2. Standardize data into an array (handles both single row object and multiple rows array)
+    const rowsToInsert = Array.isArray(data) ? data : [data];
+
+    if (rowsToInsert.length === 0) {
+      return res.status(400).json({ status: false, message: "No data provided for insertion" });
+    }
+
+    // 3. Format the targeted isolated table name
+    const targetTable = `${tableName}_${workspaceId}`;
+
+    // 4. Pass execution to the dynamic model engine
+    const result = await insertData({targetTable, rowsToInsert});
+
+    return res.status(201).json({ 
+      status: true, 
+      message: `Successfully inserted ${rowsToInsert.length} row(s) into ${tableName}`,
+      insertedCount: rowsToInsert.length
+    });
+
+  } catch (error) {
+    console.error("Data Insertion Error:", error);
+    return res.status(500).json({ 
+      status: false, 
+      message: "Database insertion failed. Verify table structure, constraints, and column data types." 
     });
   }
 };
@@ -140,4 +193,5 @@ module.exports = {
   workspace,
   tableCreation,
   addColumn,
+  addData,
 };
