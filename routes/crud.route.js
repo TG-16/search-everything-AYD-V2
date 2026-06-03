@@ -2,10 +2,15 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middlewares/auth.middleware");
 const limitChecker = require("../middlewares/limitChecker.middleware");
-const { workspace, tableCreation } = require("../controllers/crud.controller");
+const {
+  workspace,
+  tableCreation,
+  addColumn,
+} = require("../controllers/crud.controller");
 const registerValidation = require("../middlewares/validators/register.validator");
 
 router.post("/createWorkspace", auth, limitChecker, workspace);
 router.post("/createTable", auth, limitChecker, tableCreation);
+router.post("/addColumns", auth, limitChecker, addColumn);
 
 module.exports = router;

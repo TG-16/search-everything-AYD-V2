@@ -5,7 +5,7 @@ const { use } = require("../routes/auth.route");
 const {
   createWorkspace,
   createTable,
-  addAddColumns,
+  addColumns,
 } = require("../models/crud.model");
 
 const workspace = async (req, res) => {
@@ -84,7 +84,7 @@ const tableCreation = async (req, res) => {
   }
 };
 
-const createColumn = async (req, res) => {
+const addColumn = async (req, res) => {
   const { tableName, workspaceId, columns } = req.body;
 
   // 1. Authorization validation
@@ -120,7 +120,7 @@ const createColumn = async (req, res) => {
     });
 
     // 4. Fire the dynamic engine
-    await addAddColumns(targetTable, preparedColumns);
+    await addColumns(targetTable, preparedColumns);
 
     return res.status(200).json({
       status: true,
@@ -139,4 +139,5 @@ const createColumn = async (req, res) => {
 module.exports = {
   workspace,
   tableCreation,
+  addColumn,
 };

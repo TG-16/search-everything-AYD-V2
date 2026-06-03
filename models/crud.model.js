@@ -2,7 +2,7 @@ const db = require("../config/db");
 
 const createWorkspace = async ({ userId, workspaceName }) => {
   const query = `
-    INSERT INTO workspace (userId, name)
+    INSERT INTO workspace (user_id, workspace_name)
     VALUES ($1, $2)
     RETURNING *;
   `;
@@ -38,6 +38,7 @@ const createTable = async ({ workspaceId, tableName }) => {
   await db.query(createTableQuery);
 
   return rows[0];
+//   return {table_id: "123456"}
 };
 
 
@@ -45,7 +46,8 @@ const createTable = async ({ workspaceId, tableName }) => {
 const SQL_TYPE_MAP = {
   text: 'VARCHAR(255)',
   number: 'NUMERIC', // Or 'INT' / 'DOUBLE PRECISION' depending on your preference
-  date: 'TIMESTAMP'  // Or 'DATE' depending on whether you need time tracking
+  date: 'TIMESTAMP', // Or 'DATE' depending on whether you need time tracking
+  id: 'UUID'  
 };
 
 const addColumns = async (tableName, columns) => {
@@ -68,10 +70,10 @@ const addColumns = async (tableName, columns) => {
     if (col.foreignKey) {
       const { referenceTable, referenceColumn } = col.foreignKey;
       // Sanitize the dynamic reference components
-      const cleanRefTable = referenceTable.replace(/[^a-zA-Z0-9_]/g, '');
-      const cleanRefColumn = referenceColumn.replace(/[^a-zA-Z0-9_]/g, '');
+      const cleanRefTable = referenceTable;
+      const cleanRefColumn = referenceColumn;
       
-      parts.push(`REFERENCES ${cleanRefTable}(${cleanRefColumn})`);
+      parts.push(`REFERENCES "${cleanRefTable}"(${cleanRefColumn})`);
     }
 
     return parts.join(" ");
@@ -79,8 +81,8 @@ const addColumns = async (tableName, columns) => {
 
   // Construct the final statement safely
   // Clean the table name one last time for defensive security
-  const cleanTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
-  const sql = `ALTER TABLE ${cleanTableName} ${columnDefinitions.join(", ")};`;
+  const cleanTableName = tableName;
+  const sql = `ALTER TABLE "${cleanTableName}" ${columnDefinitions.join(", ")};`;
 
   // Execute the query
   return await db.query(sql);
