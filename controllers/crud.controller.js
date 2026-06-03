@@ -7,7 +7,9 @@ const {
   createTable,
   addColumns,
   insertData,
+  searchVectorRegistry,
 } = require("../models/crud.model");
+const { pipeline } = require('@huggingface/transformers');
 
 const workspace = async (req, res) => {
   // get the user id and wokspace name
@@ -189,9 +191,55 @@ const addData = async (req, res) => {
   }
 };
 
+
+//temporary checking code
+let searchExtractor = null;
+
+// Initialize the model once for search runtime processing
+const getSearchExtractor = async () => {
+  if (!searchExtractor) {
+    searchExtractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+  }
+  return searchExtractor;
+};
+
+const vectorSearch = async (req, res) => {
+  const { workspaceId, query, limit } = req.body;
+
+  // 1. Basic Validations
+  if (!workspaceId || !query) {
+    return res.status(400).json({ status: false, message: "workspaceId and query string are required." });
+  }
+
+  try {
+    // 2. Load extraction pipeline and vectorize the incoming plain text query
+    const extractor = await getSearchExtractor();
+    const output = await extractor(query, { pooling: 'mean', normalize: true });
+    const queryVector = Array.from(output.data);
+
+    // 3. Query the isolated database shard
+    const results = await searchVectorRegistry({
+      workspaceId,
+      queryVector,
+      limit: parseInt(limit, 10) || 5
+    });
+
+    return res.status(200).json({
+      status: true,
+      results
+    });
+
+  } catch (error) {
+    console.error("Vector search routing failure:", error);
+    return res.status(500).json({ status: false, message: "Failed to process semantic vector search query." });
+  }
+};
+
+
 module.exports = {
   workspace,
   tableCreation,
   addColumn,
   addData,
+  vectorSearch,
 };

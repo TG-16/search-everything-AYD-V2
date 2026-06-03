@@ -195,9 +195,39 @@ const cleanTableName = targetTable;
 
 
 
+//temporary checking code
+
+/**
+ * Performs a vector similarity search using pgvector's cosine distance operator (<=>)
+ */
+const searchVectorRegistry = async ({ workspaceId, queryVector, limit }) => {
+  const targetTable = `global_registry_${workspaceId}`;
+  
+  // pgvector expects the vector array formatted as a JSON string literal like '[0.12, -0.4, ...]'
+  const formattedVectorString = JSON.stringify(queryVector);
+
+  // (1 - (embedding <=> $1)) converts cosine distance into a similarity percentage (0 to 1)
+  const sql = `
+    SELECT 
+      source_table, 
+      source_row_id, 
+      metadata, 
+      (1 - (embedding <=> $1)) AS similarity
+    FROM "${targetTable}"
+    WHERE embedding_status = 'completed'
+    ORDER BY embedding <=> $1
+    LIMIT $2;
+  `;
+
+  const { rows } = await db.query(sql, [formattedVectorString, limit || 5]);
+  return rows;
+};
+
+
 module.exports = {
   createWorkspace,
   createTable,
   addColumns,
   insertData,
+  searchVectorRegistry
 };
