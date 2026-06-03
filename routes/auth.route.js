@@ -7,13 +7,13 @@ const {
   login,
   resetPassword,
   realResetPassword,
-} = require("../controllers/authController");
-const registerValidation = require("../middlewares/validators/registerValidator");
-const loginValidation = require("../middlewares/validators/loginValidator");
+} = require("../controllers/auth.controller");
+const registerValidation = require("../middlewares/validators/register.validator");
+const loginValidation = require("../middlewares/validators/login.validator");
 const {
   resetPasswordValidator,
   reseEmailValidator,
-} = require("../middlewares/validators/resetPasswordValidator");
+} = require("../middlewares/validators/resetPassword.validator");
 
 router.post("/register", registerValidation, register);
 router.post("/login", loginValidation, login);

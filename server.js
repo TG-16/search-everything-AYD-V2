@@ -1,9 +1,10 @@
 require('dotenv').config();
+const cors = require("cors");
 const express = require('express');
 const app = express();
 const morgan = require("morgan");
-const authRoutes = require('./routes/auth');
-const cors = require("cors");
+const authRoutes = require('./routes/auth.route');
+const crudRoutes = require('./routes/crud.route');
 
 
 const port = process.env.PORT || 5000;
@@ -16,6 +17,7 @@ app.use(express.json());
 // load all api keys to the memory on sever starts
 
 app.use('/api/auth', authRoutes);
+app.use('/api/crud', crudRoutes);
 
 
 app.listen(port, () => {

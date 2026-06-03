@@ -7,7 +7,7 @@ const {
   getUser,
   registerUser,
   updateUserPassword,
-} = require("../models/userModel");
+} = require("../models/user.model");
 const sendResetLink = require("../utils/sendEmaill");
 
 // Initialize Google OAuth Client with Secret and Redirect URL
