@@ -1,8 +1,8 @@
 const db = require('../config/db');
 const { pipeline } = require('@huggingface/transformers');
 
-const BATCH_SIZE = 15;
-const PROCESSING_INTERVAL_MS = 2000;
+const BATCH_SIZE = 100;
+const PROCESSING_INTERVAL_MS = 1000;
 
 // Globally held pipeline reference so it only loads into memory once
 let embeddingPipeline = null;

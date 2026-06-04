@@ -1,0 +1,50 @@
+{
+    "userName": "Teddy",
+    "email":"test1@gmail.com",
+    "password":"Tg0918800210",
+    "prompt":"show me all my data from products",
+
+
+
+    "workspaceName": "working_workspace",
+
+    "workspaceId": "543319e6-5fdd-4065-9a74-b8992b7d558e",
+    // "tableName": "clients",
+    "tableId": "d983adff-c6c6-483a-b71a-0dc0724817d1",
+    "tableIdClients": "c11fe507-acb2-43c9-b967-012dcf3b458f",
+
+  "tableName": "products",
+  "columns": [
+    {
+      "name": "description",
+      "dataType": "text" 
+    },
+    {
+      "name": "amount",
+      "dataType": "number",
+      "constraints": { "notNull": true }
+    },
+    {
+      "name": "due_date",
+      "dataType": "date"
+    }
+    // {
+    //   "name": "client_id",
+    //   "dataType": "id",
+    //   "foreignKey": {
+    //     "referenceTable": "clients",
+    //     "referenceColumn": "id"
+    //   }
+    // }
+  ],
+
+"data": [
+    { "description": "Mechanical Keyboard", "amount": 89.99},
+    { "description": "4K Monitor", "amount": 349.99 },
+    { "description": "USB-C Hub", "amount": 19.99 }
+  ],
+
+  "query": "laptop accessary",
+    "limit": "2"
+
+}
