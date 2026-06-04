@@ -1,57 +1,39 @@
-const { hybridSearchRegistry } = require('../models/search.model');
-const { pipeline } = require('@huggingface/transformers');
+// File: controllers/search.controller.js
 
-let searchPipelineInstance = null;
-
-/**
- * Shared singleton helper guaranteeing the ML model layout loads into memory only once
- */
-const getSearchPipeline = async () => {
-  if (!searchPipelineInstance) {
-    searchPipelineInstance = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-  }
-  return searchPipelineInstance;
-};
+const SearchService = require('../models/search.model');
 
 const globalSearch = async (req, res) => {
   const { query, workspaceId, filters, limit } = req.body;
 
-  // 1. Structural Validation Checks
+  // 1. Initial Validation
   if (!workspaceId || !query) {
-    return res.status(400).json({ 
-      status: false, 
-      message: "Missing required parameters: workspaceId and query string are mandatory." 
+    return res.status(400).json({
+      status: false,
+      message: "Required parameters missing: 'workspaceId' and 'query' string are mandatory inputs."
     });
   }
 
   try {
-    // 2. Convert incoming plaintext query into an embedding vector locally
-    const extractor = await getSearchPipeline();
-    const cleanQuery = query.trim() || " ";
-    const output = await extractor(cleanQuery, { pooling: 'mean', normalize: true });
-    const embeddingVector = Array.from(output.data);
-
-    // 3. Construct and execute the dynamic query with filters inside the model layer
-    const results = await hybridSearchRegistry({
+    // 2. Pass control parameters to the Search Service Layer
+    const searchResults = await SearchService.executeHybridSearch({
       workspaceId,
-      textQuery: query,
-      vectorQuery: embeddingVector,
-      filters: filters || {}, // Fallback to empty object if no filtering arrays passed
+      rawQuery: query,
+      filters: filters || {},
       limit: parseInt(limit, 10) || 10
     });
 
-    // 4. Return unified hybrid response
+    // 3. Return a standardized response
     return res.status(200).json({
       status: true,
-      count: results.length,
-      results
+      resultsCount: searchResults.length,
+      data: searchResults
     });
 
   } catch (error) {
-    console.error("Global Hybrid Search Processing Failure:", error);
-    return res.status(500).json({ 
-      status: false, 
-      message: "Internal server error processing hybrid workspace queries." 
+    console.error("[Global Search Controller Error]:", error);
+    return res.status(500).json({
+      status: false,
+      message: "An internal error occurred while processing the search request."
     });
   }
 };

@@ -145,3 +145,95 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+
+
+
+
+
+
+
+
+-- the core hybrid searching query
+-- Target Parameter Layout: 
+-- $1 = raw text search token, $2 = generated vector array string, $3 = metadata filter injection limit
+WITH fts_search AS (
+    SELECT 
+        registry_id, 
+        ROW_NUMBER() OVER (ORDER BY ts_rank(searchable_tsv, websearch_to_tsquery('english', $1)) DESC) as rank_position
+    FROM "global_registry_{workspaceId}"
+    WHERE searchable_tsv @@ websearch_to_tsquery('english', $1)
+    -- {DYNAMIC_METADATA_FILTERS}
+    LIMIT 50
+),
+vector_search AS (
+    SELECT 
+        registry_id, 
+        ROW_NUMBER() OVER (ORDER BY embedding <=> $2 ASC) as rank_position
+    FROM "global_registry_{workspaceId}"
+    WHERE embedding_status = 'completed'
+    -- {DYNAMIC_METADATA_FILTERS}
+    ORDER BY embedding <=> $2 ASC
+    LIMIT 50
+),
+fuzzy_search AS (
+    SELECT 
+        registry_id, 
+        ROW_NUMBER() OVER (ORDER BY similarity(searchable_text, $1) DESC) as rank_position
+    FROM "global_registry_{workspaceId}"
+    WHERE searchable_text % $1
+    -- {DYNAMIC_METADATA_FILTERS}
+    LIMIT 50
+),
+unified_universe AS (
+    SELECT registry_id FROM fts_search
+    UNION
+    SELECT registry_id FROM vector_search
+    UNION
+    SELECT registry_id FROM fuzzy_search
+)
+SELECT 
+    u.registry_id,
+    r.source_table,
+    r.source_row_id,
+    r.metadata,
+    -- Apply RRF Math Core (k = 60)
+    (
+        COALESCE((SELECT 1.0 / (60.0 + rank_position) FROM fts_search WHERE registry_id = u.registry_id), 0.0) +
+        COALESCE((SELECT 1.0 / (60.0 + rank_position) FROM vector_search WHERE registry_id = u.registry_id), 0.0) +
+        COALESCE((SELECT 1.0 / (60.0 + rank_position) FROM fuzzy_search WHERE registry_id = u.registry_id), 0.0)
+    ) AS rrf_score
+FROM unified_universe u
+JOIN "global_registry_{workspaceId}" r ON u.registry_id = r.registry_id
+ORDER BY rrf_score DESC
+LIMIT $3;
+
+
+
+
+
+
+
+
+
+
+
+
+-- trigger to add fuzzy search indexing
+-- 1. Enable the trigram text analysis extension
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- 2. Configuration function for automatic workspace trigram optimization
+CREATE OR REPLACE FUNCTION configure_workspace_trigram_indexes(p_workspace_id UUID)
+RETURNS VOID AS $$
+DECLARE
+    v_table_name TEXT := 'global_registry_' || p_workspace_id::text;
+    v_index_name TEXT := 'idx_registry_trgm_' || p_workspace_id::text;
+BEGIN
+    -- Dynamically attach a GIN Trigram index to the combined text block
+    EXECUTE format(
+        'CREATE INDEX IF NOT EXISTS %I ON %I USING gin (searchable_text gin_trgm_ops);',
+        v_index_name, v_table_name
+    );
+END;
+$$ LANGUAGE plpgsql;
