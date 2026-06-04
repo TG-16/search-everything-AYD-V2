@@ -1,15 +1,17 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { validate: isUUID } = require("uuid");
-const { use } = require("../routes/auth.route");
+// const { use } = require("../routes/auth.route");
 const {
   createWorkspace,
   createTable,
   addColumns,
   insertData,
+  fetchTableData,
   searchVectorRegistry,
 } = require("../models/crud.model");
 const { pipeline } = require('@huggingface/transformers');
+const FilterBuilder = require('../utils/FilterBuilder');
 
 const workspace = async (req, res) => {
   // get the user id and wokspace name
@@ -90,6 +92,7 @@ const tableCreation = async (req, res) => {
     });
   }
 };
+
 const addColumn = async (req, res) => {
   const { tableName, workspaceId, columns } = req.body;
 
@@ -145,8 +148,6 @@ const addColumn = async (req, res) => {
   }
 };
 
-
-
 const addData = async (req, res) => {
   const { tableName, workspaceId, data } = req.body;
 
@@ -190,6 +191,95 @@ const addData = async (req, res) => {
     });
   }
 };
+
+
+
+/**
+ * Controller to fetch paginated and filtered records directly from a specified table
+ */
+const readData = async (req, res) => {
+  const { workspaceId, tableName, filters, limit, page } = req.body;
+
+  // 1. Validate mandatory target routing parameters
+  if (!workspaceId || !tableName) {
+    return res.status(400).json({
+      status: false,
+      message: "Missing required parameters: Both 'workspaceId' and 'tableName' must be provided."
+    });
+  }
+
+  try {
+    // 2. Establish pagination boundaries
+    const clientLimit = parseInt(limit, 10) || 20;
+    const clientPage = parseInt(page, 10) || 1;
+    const clientOffset = (clientPage - 1) * clientLimit;
+
+    // 3. Generate baseline filter syntax using your original FilterBuilder module
+    const filterData = FilterBuilder.build(filters, 3);
+
+    // 4. TRANSFORMATION LAYER: Convert JSONB path syntax to native table columns
+    // This turns:  r.metadata->>'category'  ->  r."category"
+    // and turns:   (r.metadata->>'price')::numeric  ->  (r."price")::numeric
+    const nativeFilterSql = filterData.sql.replace(/r\.metadata->>'(\w+)'/g, 'r."$1"');
+
+    // 5. Request data rows from the dynamic custom table layout
+    const dataRecords = await fetchTableData({
+      workspaceId,
+      tableName,
+      filterSql: nativeFilterSql, // Pass the corrected native SQL string
+      filterValues: filterData.values,
+      limit: clientLimit,
+      offset: clientOffset
+    });
+
+    // 6. Return matched rows matching original interface specifications
+    return res.status(200).json({
+      status: true,
+      meta: {
+        workspaceId,
+        tableName,
+        page: clientPage,
+        limit: clientLimit,
+        count: dataRecords.length
+      },
+      results: dataRecords
+    });
+
+  } catch (error) {
+    console.error("[Table Data Read Error]:", error);
+
+    if (error.code === '42P01') {
+      return res.status(404).json({
+        status: false,
+        message: `The table '${tableName}' for workspace '${workspaceId}' could not be found.`
+      });
+    }
+
+    return res.status(500).json({
+      status: false,
+      message: "An internal database error occurred while querying the target table."
+    });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 //temporary checking code
@@ -241,5 +331,6 @@ module.exports = {
   tableCreation,
   addColumn,
   addData,
+  readData,
   vectorSearch,
 };

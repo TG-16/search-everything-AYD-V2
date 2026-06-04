@@ -7,6 +7,7 @@ const {
   tableCreation,
   addColumn,
   addData,
+  readData,
   vectorSearch,
 } = require("../controllers/crud.controller");
 const registerValidation = require("../middlewares/validators/register.validator");
@@ -18,6 +19,7 @@ router.post("/createWorkspace", auth, limitChecker, workspace);
 router.post("/createTable", auth, limitChecker, tableCreation);
 router.post("/addColumns", auth, limitChecker, addColumn);
 router.post("/insertData", largeJsonParser, auth, limitChecker, addData);
+router.post("/readData", auth, limitChecker, readData);
 
 
 //temporary checking code

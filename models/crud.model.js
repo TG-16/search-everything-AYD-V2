@@ -199,6 +199,53 @@ const cleanTableName = targetTable;
 
 
 
+/**
+  *Reads records directly from a workspace-sharded user table using dynamic parameterized filters
+ **/
+const fetchTableData = async ({ workspaceId, tableName, filterSql, filterValues, limit, offset }) => {
+  // 1. Defensively sanitize both inputs to prevent SQL Injection on identifiers
+  const cleanTableName = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+  const cleanWorkspaceId = workspaceId.replace(/[^a-zA-Z0-9_\-]/g, '');
+
+  // 2. Reconstruct the actual table name matching your database schema layout
+  const actualDbTable = `${cleanTableName}_${cleanWorkspaceId}`;
+
+  // $1 = limit, $2 = offset. Dynamic filters map sequentially to $3, $4, etc.
+  const queryParams = [limit, offset, ...filterValues];
+
+  const sql = `
+    SELECT *
+    FROM "${actualDbTable}" r
+    WHERE 1=1 ${filterSql}
+    LIMIT $1 OFFSET $2;
+  `;
+
+  const { rows } = await db.query(sql, queryParams);
+  return rows;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //temporary checking code
 
 /**
@@ -233,5 +280,6 @@ module.exports = {
   createTable,
   addColumns,
   insertData,
+  fetchTableData,
   searchVectorRegistry
 };
