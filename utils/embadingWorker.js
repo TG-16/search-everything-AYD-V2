@@ -12,9 +12,9 @@ let embeddingPipeline = null;
  */
 const initPipeline = async () => {
   if (!embeddingPipeline) {
-    console.log('[Worker] Loading ML Model (Xenova/all-MiniLM-L6-v2)...');
+    console.log('[Worker] Loading ML Model (Xenova/bge-small-en-v1.5)...');
     // Using feature-extraction task for creating embedding vectors
-    embeddingPipeline = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+    embeddingPipeline = await pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5');
     console.log('[Worker] ML Model successfully loaded into memory.');
   }
   return embeddingPipeline;

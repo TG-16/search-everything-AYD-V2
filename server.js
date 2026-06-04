@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth.route');
 const crudRoutes = require('./routes/crud.route');
 const searchRoutes = require('./routes/search.route');
 const startEmbeddingWorker = require("./utils/embadingWorker");
+const { initModels } = require('./controllers/search.controller');
 
 
 const port = process.env.PORT || 5000;
@@ -24,6 +25,18 @@ app.use('/api/search', searchRoutes);
 
 startEmbeddingWorker();
 
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-});
+console.log('[System] Initializing Neural Infrastructure...');
+
+initModels()
+  .then(() => {
+    console.log('[System] All BAAI Models successfully loaded into RAM.');
+    
+    // 3. Only start accepting API traffic once the models are warm
+    app.listen(port, () => {
+      console.log(`[Production Host Cluster Active] Listening on port: ${port}`);
+    });
+  })
+  .catch(err => {
+    console.error("CRITICAL: Search infrastructure initialization failed:", err);
+    process.exit(1); // Crash early if models can't load
+  });
