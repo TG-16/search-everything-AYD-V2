@@ -226,53 +226,116 @@ const fetchTableData = async ({ workspaceId, tableName, filterSql, filterValues,
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//temporary checking code
-
 /**
- * Performs a vector similarity search using pgvector's cosine distance operator (<=>)
+ * Updates a single row by its "id" column in a specific workspace sharded table
  */
-const searchVectorRegistry = async ({ workspaceId, queryVector, limit }) => {
-  const targetTable = `global_registry_${workspaceId}`;
-  
-  // pgvector expects the vector array formatted as a JSON string literal like '[0.12, -0.4, ...]'
-  const formattedVectorString = JSON.stringify(queryVector);
+const updateSingleRow = async ({ workspaceId, tableName, id, updates }) => {
+  const cleanTable = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+  const cleanWorkspaceId = workspaceId.replace(/[^a-zA-Z0-9_\-]/g, '');
+  const actualDbTable = `${cleanTable}_${cleanWorkspaceId}`;
 
-  // (1 - (embedding <=> $1)) converts cosine distance into a similarity percentage (0 to 1)
+  const keys = Object.keys(updates);
+  if (keys.length === 0) return null;
+
+  const setClauses = [];
+  const queryParams = [];
+  let paramIndex = 1;
+
+  // Dynamically map update parameters
+  for (const key of keys) {
+    const cleanKey = key.replace(/[^a-zA-Z0-9_]/g, '');
+    setClauses.push(`"${cleanKey}" = $${paramIndex}`);
+    queryParams.push(updates[key]);
+    paramIndex++;
+  }
+
+  // Push the row id to the final parameter position
+  queryParams.push(id);
+  
   const sql = `
-    SELECT 
-      source_table, 
-      source_row_id, 
-      metadata, 
-      (1 - (embedding <=> $1)) AS similarity
-    FROM "${targetTable}"
-    WHERE embedding_status = 'completed'
-    ORDER BY embedding <=> $1
-    LIMIT $2;
+    UPDATE "${actualDbTable}"
+    SET ${setClauses.join(', ')}
+    WHERE "id" = $${paramIndex}
+    RETURNING *;
   `;
 
-  const { rows } = await db.query(sql, [formattedVectorString, limit || 5]);
-  return rows;
+  const { rows } = await db.query(sql, queryParams);
+  return rows[0] || null;
 };
+
+/**
+ * Updates multiple rows uniquely by their "id" inside an atomic transactional block
+ */
+const updateBatchRows = async ({ workspaceId, tableName, records }) => {
+  const cleanTable = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+  const cleanWorkspaceId = workspaceId.replace(/[^a-zA-Z0-9_\-]/g, '');
+  const actualDbTable = `${cleanTable}_${cleanWorkspaceId}`;
+
+  const client = await db.connect();
+  const updatedRecords = [];
+
+  try {
+    await client.query('BEGIN');
+
+    for (const record of records) {
+      const { id, updates } = record;
+      const keys = Object.keys(updates);
+      if (keys.length === 0) continue;
+
+      const setClauses = [];
+      const queryParams = [];
+      let paramIndex = 1;
+
+      for (const key of keys) {
+        const cleanKey = key.replace(/[^a-zA-Z0-9_]/g, '');
+        setClauses.push(`"${cleanKey}" = $${paramIndex}`);
+        queryParams.push(updates[key]);
+        paramIndex++;
+      }
+
+      queryParams.push(id);
+
+      const sql = `
+        UPDATE "${actualDbTable}"
+        SET ${setClauses.join(', ')}
+        WHERE "id" = $${paramIndex}
+        RETURNING *;
+      `;
+
+      const { rows } = await client.query(sql, queryParams);
+      if (rows[0]) {
+        updatedRecords.push(rows[0]);
+      }
+    }
+
+    await client.query('COMMIT');
+    return updatedRecords;
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 module.exports = {
@@ -281,5 +344,5 @@ module.exports = {
   addColumns,
   insertData,
   fetchTableData,
-  searchVectorRegistry
+  updateSingleRow, updateBatchRows,
 };

@@ -8,7 +8,8 @@ const {
   addColumn,
   addData,
   readData,
-  vectorSearch,
+  editSingleData,
+  editBatchData,
 } = require("../controllers/crud.controller");
 const registerValidation = require("../middlewares/validators/register.validator");
 
@@ -21,9 +22,10 @@ router.post("/addColumns", auth, limitChecker, addColumn);
 router.post("/insertData", largeJsonParser, auth, limitChecker, addData);
 router.post("/readData", auth, limitChecker, readData);
 
+router.post("/editSingleData", auth, limitChecker, editSingleData);
+router.post("/editBatchData", auth, limitChecker, editBatchData);
 
-//temporary checking code
-router.post("/vectorSearch", auth, limitChecker, vectorSearch);
+
 
 
 module.exports = router;

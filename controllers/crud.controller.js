@@ -8,7 +8,8 @@ const {
   addColumns,
   insertData,
   fetchTableData,
-  searchVectorRegistry,
+ updateSingleRow,
+ updateBatchRows,
 } = require("../models/crud.model");
 const { pipeline } = require('@huggingface/transformers');
 const FilterBuilder = require('../utils/FilterBuilder');
@@ -263,67 +264,102 @@ const readData = async (req, res) => {
 };
 
 
+/**
+ * Endpoint optimized for UI interactions modifying one data row at a time via its "id"
+ */
+const editSingleData = async (req, res) => {
+  const { workspaceId, tableName, id, updates } = req.body;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//temporary checking code
-let searchExtractor = null;
-
-// Initialize the model once for search runtime processing
-const getSearchExtractor = async () => {
-  if (!searchExtractor) {
-    searchExtractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-  }
-  return searchExtractor;
-};
-
-const vectorSearch = async (req, res) => {
-  const { workspaceId, query, limit } = req.body;
-
-  // 1. Basic Validations
-  if (!workspaceId || !query) {
-    return res.status(400).json({ status: false, message: "workspaceId and query string are required." });
+  if (!workspaceId || !tableName || !id || !updates) {
+    return res.status(400).json({
+      status: false,
+      message: "Missing parameters. 'workspaceId', 'tableName', 'id', and an 'updates' payload object are mandatory."
+    });
   }
 
   try {
-    // 2. Load extraction pipeline and vectorize the incoming plain text query
-    const extractor = await getSearchExtractor();
-    const output = await extractor(query, { pooling: 'mean', normalize: true });
-    const queryVector = Array.from(output.data);
-
-    // 3. Query the isolated database shard
-    const results = await searchVectorRegistry({
+    const updatedRow = await updateSingleRow({
       workspaceId,
-      queryVector,
-      limit: parseInt(limit, 10) || 5
+      tableName,
+      id,
+      updates
+    });
+
+    if (!updatedRow) {
+      return res.status(404).json({
+        status: false,
+        message: "No record found matching the provided id in the target table."
+      });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "Record updated successfully.",
+      data: updatedRow
+    });
+
+  } catch (error) {
+    console.error("[Single Row Edit Error]:", error);
+    if (error.code === '42P01') {
+      return res.status(404).json({ status: false, message: "Targeted table resource could not be found." });
+    }
+    return res.status(500).json({ status: false, message: "Internal server error occurred while updating row." });
+  }
+};
+
+/**
+ * API-facing batch processing endpoint to modify multiple rows by their respective "id" values
+ */
+const editBatchData = async (req, res) => {
+  const { workspaceId, tableName, records } = req.body;
+
+  if (!workspaceId || !tableName || !Array.isArray(records) || records.length === 0) {
+    return res.status(400).json({
+      status: false,
+      message: "Required inputs missing. Expecting a non-empty payload array under 'records'."
+    });
+  }
+
+  try {
+    const processedRows = await updateBatchRows({
+      workspaceId,
+      tableName,
+      records
     });
 
     return res.status(200).json({
       status: true,
-      results
+      metrics: {
+        submitted: records.length,
+        succeeded: processedRows.length
+      },
+      message: `Batch transaction complete. Successfully updated ${processedRows.length} records.`
     });
 
   } catch (error) {
-    console.error("Vector search routing failure:", error);
-    return res.status(500).json({ status: false, message: "Failed to process semantic vector search query." });
+    console.error("[Batch Rows Edit Error]:", error);
+    if (error.code === '42P01') {
+      return res.status(404).json({ status: false, message: "Targeted table system relation was not found." });
+    }
+    return res.status(500).json({ status: false, message: "Database batch execution collapsed. All changes aborted." });
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 module.exports = {
@@ -332,5 +368,7 @@ module.exports = {
   addColumn,
   addData,
   readData,
-  vectorSearch,
+  editSingleData,
+  editBatchData,
+  
 };
