@@ -1,107 +1,55 @@
 const { executeHybridQuery } = require('../models/search.model');
+const FilterBuilder = require('../utils/FilterBuilder');
 const { pipeline } = require('@huggingface/transformers');
 
-// ============================================================================
-// 1. ML Pipeline Singletons (BAAI Models)
-// ============================================================================
+// Thread Singletons for model caching
 let embeddingPipeline = null;
 let rerankerPipeline = null;
 
+/**
+ * Single-instance initializer for neural layers.
+ * Both pipelines are upgraded to BAAI-engineered model variants.
+ */
 const initModels = async () => {
   if (!embeddingPipeline) {
-    console.log('[Search] Loading BAAI/bge-small-en-v1.5...');
+    console.log('[Search Engine] Loading Xenova/bge-small-en-v1.5...');
     embeddingPipeline = await pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5');
   }
   if (!rerankerPipeline) {
-    console.log('[Search] Loading BAAI/bge-reranker-base...');
+    console.log('[Search Engine] Loading Xenova/bge-reranker-base...');
     rerankerPipeline = await pipeline('text-classification', 'Xenova/bge-reranker-base');
   }
   return { encoder: embeddingPipeline, reranker: rerankerPipeline };
 };
 
-// ============================================================================
-// 2. Dynamic Filter Builder Helper
-// ============================================================================
-const buildFilters = (filters, startingParamIndex) => {
-  if (!filters || Object.keys(filters).length === 0) return { sql: '', values: [] };
-
-  const sqlClauses = [];
-  const values = [];
-  let paramIndex = startingParamIndex;
-  const rootColumns = ['registry_id', 'workspace_id', 'source_table', 'source_row_id'];
-
-  for (const [field, ops] of Object.entries(filters)) {
-    const cleanField = field.replace(/[^a-zA-Z0-9_]/g, '');
-    const isRoot = rootColumns.includes(cleanField);
-    const targetColumn = isRoot ? `"${cleanField}"` : `searchable_text->>'${cleanField}'`; // Targeting JSONB metadata
-
-    // Handle basic equality { "status": "active" }
-    if (typeof ops !== 'object' || Array.isArray(ops)) {
-      sqlClauses.push(`${targetColumn} = $${paramIndex}`);
-      values.push(String(ops));
-      paramIndex++;
-      continue;
-    }
-
-    // Handle advanced operators { "price": { "gte": 100 } }
-    for (const [operator, value] of Object.entries(ops)) {
-      switch (operator) {
-        case 'eq':
-          sqlClauses.push(`${targetColumn} = $${paramIndex}`);
-          values.push(String(value));
-          paramIndex++;
-          break;
-        case 'gt':
-        case 'gte':
-        case 'lt':
-        case 'lte':
-          const sqlOp = operator.replace('eq', '=').replace('gt', '>').replace('lt', '<');
-          sqlClauses.push(isRoot ? `${targetColumn} ${sqlOp} $${paramIndex}` : `(${targetColumn})::numeric ${sqlOp} $${paramIndex}`);
-          values.push(Number(value));
-          paramIndex++;
-          break;
-        case 'in':
-          if (!Array.isArray(value)) break;
-          const placeholders = value.map((_, i) => `$${paramIndex + i}`).join(', ');
-          sqlClauses.push(`${targetColumn} IN (${placeholders})`);
-          value.forEach(v => values.push(String(v)));
-          paramIndex += value.length;
-          break;
-        // Extend with 'between', 'contains', etc., as needed based on previous implementation
-      }
-    }
-  }
-
-  return {
-    sql: sqlClauses.length > 0 ? ` AND ${sqlClauses.join(' AND ')}` : '',
-    values
-  };
-};
-
-// ============================================================================
-// 3. Main Controller Logic
-// ============================================================================
+/**
+ * Primary Unified Global Search Controller Route Method
+ */
 const globalSearch = async (req, res) => {
   const { query, workspaceId, filters, limit } = req.body;
   const clientLimit = parseInt(limit, 10) || 10;
-  const candidateLimit = 50; // Max candidates per retrieval method before reranking
+  const candidateLimit = 100; 
 
   if (!workspaceId || !query) {
-    return res.status(400).json({ status: false, message: "workspaceId and query are required." });
+    return res.status(400).json({ 
+      status: false, 
+      message: "Required parameters missing: 'workspaceId' and 'query' string are mandatory inputs." 
+    });
   }
 
   try {
+    // Ensure pipelines are initialized and warmed in RAM
     const { encoder, reranker } = await initModels();
 
-    // 1. Generate BAAI Embedding
+    // 1. Generate query vector using BAAI bge-small-en-v1.5 (matches your worker space)
     const cleanQuery = query.trim() || ' ';
     const embeddingOutput = await encoder(cleanQuery, { pooling: 'mean', normalize: true });
     const queryVector = Array.from(embeddingOutput.data);
 
-    // 2. Build parameterized filters (Starting at $4 because $1-$3 are used in the CTE query)
-    const filterData = buildFilters(filters, 4);
+    // 2. Map query expressions to your dynamic FilterBuilder module (Offsets start at $4)
+    const filterData = FilterBuilder.build(filters, 4);
 
-    // 3. Fetch Database Candidates (Top 50 FTS + Vector + Fuzzy merged via RRF)
+    // 3. Query database candidates using RRF
     const databaseCandidates = await executeHybridQuery({
       workspaceId,
       textQuery: query,
@@ -112,60 +60,60 @@ const globalSearch = async (req, res) => {
     });
 
     if (databaseCandidates.length === 0) {
-      return res.status(200).json({ status: true, count: 0, results: [] });
+      return res.status(200).json({ status: true, resultsCount: 0, data: [] });
     }
 
-    // 4. Build Dynamic Context for Reranker
-    // Loop through all keys in the metadata block dynamically instead of hardcoding 'name' or 'category'
+    // 4. Dynamic Mapping Layer for Cross-Encoder Input Context
     const rerankerInputs = databaseCandidates.map(row => {
       const meta = row.metadata || {};
       
-      // Flatten the JSONB metadata object into a readable string for the ML model
-      // Example output: "price: 100 | color: red | status: active"
+      // Automatically serialize all primary metadata fields into a key-value format
       const dynamicMetaString = Object.entries(meta)
-        .filter(([_, v]) => typeof v === 'string' || typeof v === 'number') // Ignore nested objects
-        .map(([k, v]) => `${k}: ${v}`)
+        .filter(([_, value]) => typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+        .map(([key, value]) => `${key}: ${value}`)
         .join(' | ');
 
-      const contextString = `Metadata: ${dynamicMetaString} | Document: ${row.searchable_text || ''}`;
+      const contextString = `Metadata Context: ${dynamicMetaString} | Text Context: ${row.searchable_text || ''}`;
       
       return { text: query, text_pair: contextString };
     });
 
-    // 5. Execute Cross-Encoder Reranking using bge-reranker-base
+    // 5. Run Cross-Encoder Reranking using bge-reranker-base
     const rerankOutputs = await reranker(rerankerInputs);
 
-    // 6. Calculate final scores and format response
+    // 6. Merge scores: 30% structural RRF baseline positioning + 70% contextual verification
     const rerankedCollection = databaseCandidates.map((row, idx) => {
       const crossEncoderScore = rerankOutputs[idx].score;
-      const normalizedRrf = row.rrf_score / 0.05; // Base normalization factor
+      const normalizedRrf = row.rrf_score / 0.05; // Feature scale normalization
 
-      // 70% BAAI Reranker Validation + 30% Postgres RRF baseline
-      const finalScore = (0.3 * normalizedRrf) + (0.7 * crossEncoderScore);
+      const finalBlendedScore = (0.3 * normalizedRrf) + (0.7 * crossEncoderScore);
 
       return {
         source_table: row.source_table,
         source_row_id: row.source_row_id,
         metadata: row.metadata,
-        score: finalScore
+        score: finalBlendedScore
       };
     });
 
-    // Sort heavily by the final computed ML score and slice to user's limit
+    // 7. Sort by final score and apply the client's limit constraint
     const finalResults = rerankedCollection
       .sort((a, b) => b.score - a.score)
       .slice(0, clientLimit);
 
     return res.status(200).json({
       status: true,
-      count: finalResults.length,
-      results: finalResults
+      resultsCount: finalResults.length,
+      data: finalResults
     });
 
   } catch (error) {
-    console.error("[Search Error]:", error);
-    return res.status(500).json({ status: false, message: "Internal server error processing hybrid search." });
+    console.error("[Global Search Controller Error]:", error);
+    return res.status(500).json({
+      status: false,
+      message: "An internal server error occurred while executing the search pipeline."
+    });
   }
 };
 
-module.exports = { globalSearch,initModels };
+module.exports = { globalSearch, initModels };

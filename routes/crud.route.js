@@ -11,10 +11,13 @@ const {
 } = require("../controllers/crud.controller");
 const registerValidation = require("../middlewares/validators/register.validator");
 
+
+const largeJsonParser = express.json({ limit: '5mb' });
+
 router.post("/createWorkspace", auth, limitChecker, workspace);
 router.post("/createTable", auth, limitChecker, tableCreation);
 router.post("/addColumns", auth, limitChecker, addColumn);
-router.post("/insertData", auth, limitChecker, addData);
+router.post("/insertData", largeJsonParser, auth, limitChecker, addData);
 
 
 //temporary checking code

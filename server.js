@@ -15,7 +15,7 @@ const port = process.env.PORT || 5000;
 
 app.use(cors()); // Allow requests from localhost:3000 securely must be changed in production
 app.use(morgan("dev"));
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 // load all api keys to the memory on sever starts
 

@@ -6,26 +6,26 @@ const db = require('../config/db');
 const executeHybridQuery = async ({ workspaceId, textQuery, vectorQueryString, filterSql, filterValues, candidateLimit }) => {
   const targetTable = `global_registry_${workspaceId}`;
   
-  // Calculate parameter offsets based on how many filter values exist
-  // $1 = textQuery, $2 = vectorQuery, $3 = candidateLimit
-  const paramOffset = filterValues.length + 3;
+  // Positional assignments: $1 = textQuery, $2 = vectorQueryString, $3 = candidateLimit
+  // Dynamic filter values will spread sequentially starting from $4
+  const queryParams = [textQuery, vectorQueryString, candidateLimit, ...filterValues];
 
   const sql = `
     WITH fts_search AS (
         SELECT registry_id, ROW_NUMBER() OVER (ORDER BY ts_rank(searchable_tsv, websearch_to_tsquery('english', $1)) DESC) as rank_position
-        FROM "${targetTable}"
+        FROM "${targetTable}" AS r   -- <--- Added alias 'r' here
         WHERE searchable_tsv @@ websearch_to_tsquery('english', $1) ${filterSql}
         LIMIT $3
     ),
     vector_search AS (
         SELECT registry_id, ROW_NUMBER() OVER (ORDER BY embedding <=> $2 ASC) as rank_position
-        FROM "${targetTable}"
+        FROM "${targetTable}" AS r   -- <--- Added alias 'r' here
         WHERE embedding_status = 'completed' ${filterSql}
         LIMIT $3
     ),
     fuzzy_search AS (
         SELECT registry_id, ROW_NUMBER() OVER (ORDER BY similarity(searchable_text, $1) DESC) as rank_position
-        FROM "${targetTable}"
+        FROM "${targetTable}" AS r   -- <--- Added alias 'r' here
         WHERE searchable_text % $1 ${filterSql}
         LIMIT $3
     ),
@@ -52,9 +52,6 @@ const executeHybridQuery = async ({ workspaceId, textQuery, vectorQueryString, f
     ORDER BY rrf_score DESC;
   `;
 
-  // Combine base parameters with dynamic filter values
-  const queryParams = [textQuery, vectorQueryString, candidateLimit, ...filterValues];
-  
   const { rows } = await db.query(sql, queryParams);
   return rows;
 };

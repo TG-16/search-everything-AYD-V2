@@ -51,6 +51,10 @@ const createWorkspace = async ({ userId, workspaceName }) => {
     // 5. Execute the table and index creation within the same transaction block
     await client.query(createShardedRegistryQuery);
 
+    // 5.5. Execute the stored database helper function to provision the GIN trigram index
+    // We pass the workspaceId safely as a parameter to bind to the stored function's logic
+    await client.query('SELECT configure_workspace_trigram_indexes($1);', [workspaceId]);
+
     // 6. Commit the transaction if everything succeeded
     await client.query('COMMIT');
 
