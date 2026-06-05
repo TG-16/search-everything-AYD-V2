@@ -54,4 +54,65 @@ const totalStorageGB = parseFloat((Number(totalBytes) / (1024 * 1024 * 1024)).to
   }
 };
 
-module.exports = { fetchDashboardMetrics };
+/**
+ * Retrieves all workspaces owned by a specific user profile
+ */
+const getUserWorkspaces = async (userId) => {
+  const sql = `
+    SELECT workspace_id, workspace_name 
+    FROM workspace 
+    WHERE user_id = $1
+    ORDER BY workspace_name ASC;
+  `;
+
+  const { rows } = await db.query(sql, [userId]);
+  return rows;
+};
+
+
+/**Retrieves all registered tables and their structural column metadata for a workspace.
+ * Bypasses string-matching bugs by using a case-insensitive join on the native pg_class ledger.
+ **/
+const getWorkspaceSchema = async (workspaceId) => {
+  const sql = `
+    SELECT 
+      t.table_name,
+      a.attname AS column_name,
+      format_type(a.atttypid, a.atttypmod) AS data_type
+    FROM tables t
+    INNER JOIN pg_class c 
+      ON LOWER(c.relname) = LOWER(t.table_name || '_' || $1::text)
+    INNER JOIN pg_namespace n 
+      ON n.oid = c.relnamespace AND n.nspname = 'public'
+    INNER JOIN pg_attribute a 
+      ON a.attrelid = c.oid
+    WHERE t.workspace_id = $1::uuid
+      AND a.attnum > 0 
+      AND NOT a.attisdropped
+    ORDER BY t.table_name, a.attnum;
+  `;
+
+  const { rows } = await db.query(sql, [workspaceId]);
+
+  // Transform flat database rows into a structured JSON tree
+  const tablesMap = {};
+
+  rows.forEach(row => {
+    if (!tablesMap[row.table_name]) {
+      tablesMap[row.table_name] = {
+        tableName: row.table_name,
+        schema: []
+      };
+    }
+    
+    tablesMap[row.table_name].schema.push({
+      columnName: row.column_name,
+      dataType: row.data_type
+    });
+  });
+
+  return Object.values(tablesMap);
+};
+
+
+module.exports = { fetchDashboardMetrics, getUserWorkspaces, getWorkspaceSchema };
