@@ -56,7 +56,7 @@ const listWorkspaces = async (req, res) => {
 
 
 /**
- * Controller to extract and return a full schema inventory for a targeted workspace
+ * Controller to look up and return tables and clean schemas for a workspace payload
  */
 const getWorkspaceTablesOverview = async (req, res) => {
   const { workspaceId } = req.body;
@@ -64,7 +64,7 @@ const getWorkspaceTablesOverview = async (req, res) => {
   if (!workspaceId) {
     return res.status(400).json({
       status: false,
-      message: "Missing parameter. 'workspaceId' is mandatory inside the request payload."
+      message: "Missing parameter. 'workspaceId' is required in the request body."
     });
   }
 
@@ -73,16 +73,16 @@ const getWorkspaceTablesOverview = async (req, res) => {
 
     return res.status(200).json({
       status: true,
-      message: "Workspace table schemas mapped successfully.",
+      message: "Workspace table schemas retrieved successfully.",
       count: tableInventory.length,
       data: tableInventory
     });
 
   } catch (error) {
-    console.error("[Workspace Schema Generation Error]:", error);
+    console.error("[Workspace Schema Error]:", error);
     return res.status(500).json({
       status: false,
-      message: "An internal server error occurred while retrieving table schema maps."
+      message: "An error occurred while fetching the table schemas."
     });
   }
 };

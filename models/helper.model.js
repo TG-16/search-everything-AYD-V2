@@ -70,42 +70,46 @@ const getUserWorkspaces = async (userId) => {
 };
 
 
-/**Retrieves all registered tables and their structural column metadata for a workspace.
- * Bypasses string-matching bugs by using a case-insensitive join on the native pg_class ledger.
- **/
+/**
+ * Retrieves tables and their schemas for a workspace.
+ * Strips the workspace ID suffix from the table name before returning.
+ */
 const getWorkspaceSchema = async (workspaceId) => {
   const sql = `
     SELECT 
-      t.table_name,
-      a.attname AS column_name,
-      format_type(a.atttypid, a.atttypmod) AS data_type
+      t.table_name AS full_table_name, 
+      c.column_name, 
+      c.data_type
     FROM tables t
-    INNER JOIN pg_class c 
-      ON LOWER(c.relname) = LOWER(t.table_name || '_' || $1::text)
-    INNER JOIN pg_namespace n 
-      ON n.oid = c.relnamespace AND n.nspname = 'public'
-    INNER JOIN pg_attribute a 
-      ON a.attrelid = c.oid
+    INNER JOIN information_schema.columns c 
+      ON c.table_name = t.table_name
     WHERE t.workspace_id = $1::uuid
-      AND a.attnum > 0 
-      AND NOT a.attisdropped
-    ORDER BY t.table_name, a.attnum;
+      AND c.table_schema = 'public'
+    ORDER BY t.table_name, c.ordinal_position;
   `;
 
   const { rows } = await db.query(sql, [workspaceId]);
 
-  // Transform flat database rows into a structured JSON tree
   const tablesMap = {};
+  const suffixToRemove = `_${workspaceId}`;
 
   rows.forEach(row => {
-    if (!tablesMap[row.table_name]) {
-      tablesMap[row.table_name] = {
-        tableName: row.table_name,
+    const full_name = row.full_table_name;
+    
+    // Dynamically remove the "_workspaceId" suffix from the end of the string
+    let cleanTableName = full_name;
+    if (full_name.toLowerCase().endsWith(suffixToRemove.toLowerCase())) {
+      cleanTableName = full_name.slice(0, -suffixToRemove.length);
+    }
+
+    if (!tablesMap[cleanTableName]) {
+      tablesMap[cleanTableName] = {
+        tableName: cleanTableName,
         schema: []
       };
     }
     
-    tablesMap[row.table_name].schema.push({
+    tablesMap[cleanTableName].schema.push({
       columnName: row.column_name,
       dataType: row.data_type
     });
