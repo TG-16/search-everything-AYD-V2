@@ -10,6 +10,7 @@ const {
   fetchTableData,
  updateSingleRow,
  updateBatchRows,
+ deleteSingleRow, deleteBatchRows,
 } = require("../models/crud.model");
 const { pipeline } = require('@huggingface/transformers');
 const FilterBuilder = require('../utils/FilterBuilder');
@@ -348,6 +349,91 @@ const editBatchData = async (req, res) => {
 
 
 
+/**
+ * UI Endpoint: Optimized for single row removal actions from frontend lists
+ */
+const deleteSingleData = async (req, res) => {
+  // Extract workspaceId directly from the request body payload
+  const { workspaceId, tableName, ids } = req.body;
+  console.log(workspaceId,tableName,ids);
+
+  if (!workspaceId || !tableName || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({
+      status: false,
+      message: "Required parameters missing. Provide 'workspaceId', 'tableName', and a non-empty 'ids' array."
+    });
+  }
+
+  try {
+    // Isolate the targeted single row from the provided identifier list
+    const targetId = ids[0];
+
+    const deletedRecord = await deleteSingleRow({
+      workspaceId,
+      tableName,
+      id: targetId
+    });
+
+    if (!deletedRecord) {
+      return res.status(404).json({
+        status: false,
+        message: "No record found matching the provided id in the target table configuration."
+      });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "Record dropped successfully.",
+      data: deletedRecord
+    });
+
+  } catch (error) {
+    console.error("[Single Row Delete Error]:", error);
+    if (error.code === '42P01') {
+      return res.status(404).json({ status: false, message: "Targeted table resource could not be found." });
+    }
+    return res.status(500).json({ status: false, message: "Internal server error occurred during row excision." });
+  }
+};
+
+/**
+ * Developer Endpoint: Optimized for programmatic bulk deletion streams
+ */
+const deleteBatchData = async (req, res) => {
+  // Extract workspaceId directly from the request body payload
+  const { workspaceId, tableName, ids } = req.body;
+
+  if (!workspaceId || !tableName || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({
+      status: false,
+      message: "Required parameters missing. Provide 'workspaceId', 'tableName', and a non-empty 'ids' array list."
+    });
+  }
+
+  try {
+    const deletedRecords = await deleteBatchRows({
+      workspaceId,
+      tableName,
+      ids
+    });
+
+    return res.status(200).json({
+      status: true,
+      metrics: {
+        submitted: ids.length,
+        deleted: deletedRecords.length
+      },
+      message: `Batch complete. Successfully purged ${deletedRecords.length} records from the data matrix.`
+    });
+
+  } catch (error) {
+    console.error("[Batch Rows Delete Error]:", error);
+    if (error.code === '42P01') {
+      return res.status(404).json({ status: false, message: "Targeted table resource could not be found." });
+    }
+    return res.status(500).json({ status: false, message: "Internal server error collapsed batch deletion statement." });
+  }
+};
 
 
 
@@ -370,5 +456,6 @@ module.exports = {
   readData,
   editSingleData,
   editBatchData,
+  deleteSingleData, deleteBatchData,
   
 };

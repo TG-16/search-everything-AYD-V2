@@ -1,26 +1,60 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const db = require("../config/db");
+
 
 const authMiddleware = async (req, res, next) => {
   try {
-    // 1. Check for API Key (Typically used by external developer tools/scripts)
-    const apiKey = req.headers['x-api-key'] || req.query.api_key;
+    const apiKeyHeader = req.headers['x-api-key'];
+    // ---- SCENARIO A: Machine API Key Security Validation Pipeline ----
+    if (apiKeyHeader) {
+      const targetPrefix = 'AYD-api-key-';
 
-    //i have to modify it when i create api key
-    if (apiKey) {
-      // TODO: Replace with your actual database lookup logic for API keys
-      const workspace = await validateApiKeyInDb(apiKey); 
-      
-      if (!workspace) {
-        return res.status(401).json({ status: false, message: "Invalid API Key" });
+      // Validation: Enforce the presence of your visual prefix brand identifier
+      if (!apiKeyHeader.startsWith(targetPrefix)) {
+        return res.status(401).json({ status: false, message: "Invalid API Key format payload token structure." });
       }
 
-      // Attach workspace/user info and auth type to the request object
-      req.user = { id: workspace.userId, workspaceId: workspace.id, plan: workspace.plan };
-      req.authType = 'api_key';
+      // Extract the raw secret portion by stripping away the prefix string
+      const rawSecret = apiKeyHeader.replace(targetPrefix, '');
+
+      // Compute the lookup fingerprint hash using the isolated secret
+      const incomingHash = crypto.createHash('sha256').update(rawSecret).digest('hex');
+
+      // Recover key metadata and corresponding workspace linkage context safely
+      const query = `
+        SELECT ak.user_id, ak.is_revoked
+        FROM api_keys ak
+        INNER JOIN users u ON ak.user_id = u.id
+        WHERE ak.key_hash = $1;
+      `;
+      const { rows } = await db.query(query, [incomingHash]);
+
+      if (rows.length === 0) {
+        return res.status(401).json({ status: false, message: "Invalid API Key." });
+      }
+
+      const keyRecord = rows[0];
+
+      // Block entry if the key's revocation status flag is true
+      if (keyRecord.is_revoked) {
+        return res.status(401).json({ status: false, message: "This API Key has been revoked and can no longer be used." });
+      }
+
+      // Unify request environment state contexts smoothly for subsequent endpoint controllers
+      req.user = { 
+        id: keyRecord.user_id, 
+        // workspaceId: keyRecord.workspace_id 
+      };
       
-      return next(); // Successfully authenticated via API Key
+      // Update usage timestamps asynchronously 
+      db.query('UPDATE api_keys SET last_used_at = NOW() WHERE key_hash = $1', [incomingHash]).catch(console.error);
+
+      return next();
     }
 
+
+    
     // 2. Check for JWT Token (Typically used by web dashboard)
     const authHeader = req.headers['authorization'];
     

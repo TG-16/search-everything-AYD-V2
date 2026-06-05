@@ -326,6 +326,46 @@ const updateBatchRows = async ({ workspaceId, tableName, records }) => {
 
 
 
+/**
+ * Deletes a single row from a specific workspace sharded table by its id
+ */
+const deleteSingleRow = async ({ workspaceId, tableName, id }) => {
+  const cleanTable = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+  const cleanWorkspaceId = workspaceId.replace(/[^a-zA-Z0-9_\-]/g, '');
+  const actualDbTable = `${cleanTable}_${cleanWorkspaceId}`;
+
+  const sql = `
+    DELETE FROM "${actualDbTable}"
+    WHERE "id" = $1
+    RETURNING *;
+  `;
+
+  const { rows } = await db.query(sql, [id]);
+  return rows[0] || null;
+};
+
+/**
+ * Deletes multiple rows from a specific workspace sharded table using an array of ids
+ */
+const deleteBatchRows = async ({ workspaceId, tableName, ids }) => {
+  const cleanTable = tableName.replace(/[^a-zA-Z0-9_]/g, '');
+  const cleanWorkspaceId = workspaceId.replace(/[^a-zA-Z0-9_\-]/g, '');
+  const actualDbTable = `${cleanTable}_${cleanWorkspaceId}`;
+
+  // Dynamically map array positions to parameters ($1, $2, $3...)
+  const placeholders = ids.map((_, index) => `$${index + 1}`).join(', ');
+
+  const sql = `
+    DELETE FROM "${actualDbTable}"
+    WHERE "id" IN (${placeholders})
+    RETURNING *;
+  `;
+
+  const { rows } = await db.query(sql, ids);
+  return rows;
+};
+
+
 
 
 
@@ -345,4 +385,5 @@ module.exports = {
   insertData,
   fetchTableData,
   updateSingleRow, updateBatchRows,
+  deleteSingleRow, deleteBatchRows,
 };

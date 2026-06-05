@@ -7,6 +7,7 @@ const {
   getUser,
   registerUser,
   updateUserPassword,
+  generateAndStoreApiKey,
 } = require("../models/user.model");
 const sendResetLink = require("../utils/sendEmaill");
 
@@ -307,6 +308,29 @@ const realResetPassword = async (req, res) => {
   }
 };
 
+const createApiKey = async (req, res) => {
+  const { id: userId } = req.user; // Pulling authenticated user metadata out of active UI JWT session
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ status: false, message: "A descriptive identity name is required." });
+  }
+
+  try {
+    const keyData = await generateAndStoreApiKey({ userId, name });
+    
+    return res.status(201).json({
+      status: true,
+      message: "API Key created. Record this secret token safely; it cannot be recovered.",
+      data: keyData
+    });
+  } catch (error) {
+    console.error("API Key Controller Error:", error);
+    return res.status(500).json({ status: false, message: "Internal server error provisioned key allocation." });
+  }
+};
+
+
 module.exports = {
   initiateGoogleAuth,
   handleGoogleCallback,
@@ -314,4 +338,5 @@ module.exports = {
   login,
   resetPassword,
   realResetPassword,
+  createApiKey,
 };

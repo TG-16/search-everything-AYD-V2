@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const crypto = require('crypto');
 
 const getUser = async (email) => {
   const query = `
@@ -46,8 +47,38 @@ const updateUserPassword = async (id, hashedPassword) => {
   return rows.length > 0;
 };
 
+
+const generateAndStoreApiKey = async ({ userId, name }) => {
+  // 1. Generate the core, raw cryptographically secure random token
+  const rawSecret = crypto.randomBytes(24).toString('hex');
+  
+  // 2. Hash ONLY the raw secret for strict database matching
+  const keyHash = crypto.createHash('sha256').update(rawSecret).digest('hex');
+  
+  // 3. Keep a safe hint of the secret tail for client-side UI recognition lists
+  const keyHint = `...${rawSecret.slice(-4)}`;
+
+  const sql = `
+    INSERT INTO api_keys (user_id, name, key_hash, key_hint)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, name, key_hint, created_at;
+  `;
+
+  const { rows } = await db.query(sql, [userId, name, keyHash, keyHint]);
+  
+  // 4. Attach the visual tracking prefix ONLY to the unhashed display key string
+  const finalDisplayKey = `AYD-api-key-${rawSecret}`;
+
+  return {
+    ...rows[0],
+    apiKey: finalDisplayKey
+  };
+};
+
+
 module.exports = {
   getUser,
   registerUser,
   updateUserPassword,
+  generateAndStoreApiKey,
 };

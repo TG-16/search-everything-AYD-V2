@@ -7,6 +7,7 @@ const {
   login,
   resetPassword,
   realResetPassword,
+  createApiKey,
 } = require("../controllers/auth.controller");
 const registerValidation = require("../middlewares/validators/register.validator");
 const loginValidation = require("../middlewares/validators/login.validator");
@@ -14,11 +15,13 @@ const {
   resetPasswordValidator,
   reseEmailValidator,
 } = require("../middlewares/validators/resetPassword.validator");
+const auth = require("../middlewares/auth.middleware");
 
 router.post("/register", registerValidation, register);
 router.post("/login", loginValidation, login);
 router.post("/restPassword", reseEmailValidator, resetPassword);
 router.post("/realResetPassword", resetPasswordValidator, realResetPassword);
+router.post("/createApiKey", auth, createApiKey);
 
 // When users click "Login with Google", your frontend points here:
 router.get("/google", initiateGoogleAuth);

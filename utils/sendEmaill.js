@@ -11,6 +11,9 @@ const sendResetLink = async (email, resetToken) => {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 
   // 2. Define your backend routing URL where the token is sent

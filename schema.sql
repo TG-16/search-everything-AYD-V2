@@ -237,3 +237,22 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql;
+
+
+
+
+
+
+-- api key table creation and indexing
+CREATE TABLE api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- Resolves workspace via relation
+    name VARCHAR(255) NOT NULL,
+    key_hash VARCHAR(64) NOT NULL UNIQUE, -- Hashes ONLY the secret part
+    key_hint VARCHAR(8) NOT NULL,
+    is_revoked BOOLEAN NOT NULL DEFAULT FALSE, -- Default active
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX idx_api_keys_hash ON api_keys(key_hash) WHERE is_revoked = FALSE;

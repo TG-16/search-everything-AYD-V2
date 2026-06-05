@@ -10,6 +10,8 @@ const {
   readData,
   editSingleData,
   editBatchData,
+  deleteSingleData,
+  deleteBatchData,
 } = require("../controllers/crud.controller");
 const registerValidation = require("../middlewares/validators/register.validator");
 
@@ -26,6 +28,8 @@ router.post("/editSingleData", auth, limitChecker, editSingleData);
 router.post("/editBatchData", auth, limitChecker, editBatchData);
 
 
+router.post("/deleteSingleData", auth, limitChecker, deleteSingleData);
+router.post("/deleteBatchData", auth, limitChecker, deleteBatchData);
 
 
 module.exports = router;
