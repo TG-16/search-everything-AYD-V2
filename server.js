@@ -6,6 +6,7 @@ const morgan = require("morgan");
 const authRoutes = require('./routes/auth.route');
 const crudRoutes = require('./routes/crud.route');
 const searchRoutes = require('./routes/search.route');
+const helperRoutes = require('./routes/helper.route');
 const startEmbeddingWorker = require("./utils/embadingWorker");
 const { initModels } = require('./controllers/search.controller');
 
@@ -22,6 +23,7 @@ app.use(express.json({ limit: '5mb' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/crud', crudRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/app', helperRoutes);
 
 startEmbeddingWorker();
 
