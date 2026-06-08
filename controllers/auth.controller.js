@@ -1,13 +1,15 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { OAuth2Client } = require("google-auth-library");
-const crypto = require("crypto"); 
+const { OAuth2Client, auth } = require("google-auth-library");
+const crypto = require("crypto");
 
 const {
   getUser,
   registerUser,
   updateUserPassword,
   generateAndStoreApiKey,
+  getPasswordHashById,
+  updatePasswordHash,
 } = require("../models/user.model");
 const sendResetLink = require("../utils/sendEmaill");
 
@@ -73,7 +75,7 @@ const handleGoogleCallback = async (req, res) => {
         userName: name,
         email,
         password: hashedPassword,
-        auth_provider: "google"
+        auth_provider: "google",
       });
     }
 
@@ -124,7 +126,7 @@ const register = async (req, res) => {
       userName,
       email,
       password: hashedPassword,
-      auth_provider: "local"
+      auth_provider: "local",
     });
 
     if (registerdUser) {
@@ -313,23 +315,113 @@ const createApiKey = async (req, res) => {
   const { name } = req.body;
 
   if (!name) {
-    return res.status(400).json({ status: false, message: "A descriptive identity name is required." });
+    return res
+      .status(400)
+      .json({
+        status: false,
+        message: "A descriptive identity name is required.",
+      });
   }
 
   try {
     const keyData = await generateAndStoreApiKey({ userId, name });
-    
+
     return res.status(201).json({
       status: true,
-      message: "API Key created. Record this secret token safely; it cannot be recovered.",
-      data: keyData
+      message:
+        "API Key created. Record this secret token safely; it cannot be recovered.",
+      data: keyData,
     });
   } catch (error) {
     console.error("API Key Controller Error:", error);
-    return res.status(500).json({ status: false, message: "Internal server error provisioned key allocation." });
+    return res
+      .status(500)
+      .json({
+        status: false,
+        message: "Internal server error provisioned key allocation.",
+      });
   }
 };
 
+/**
+ * Securely changes a user's password
+ */
+const changePassword = async (req, res) => {
+  const { id: userId } = req.user; // Retrieved from your authentication middleware context
+  const { oldPassword, newPassword } = req.body;
+
+  // 1. Basic validation
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({
+      status: false,
+      message:
+        "Validation failed. Both oldPassword and newPassword are required.",
+    });
+  }
+
+  try {
+    // 2. Fetch the current stored password hash
+    const user = await getPasswordHashById(userId);
+    const auth_provider = user.auth_provider;
+    const currentHash = user.password;
+    if (!currentHash) {
+      return res.status(404).json({
+        status: false,
+        message: "User profile not found.",
+      });
+    }
+
+    if (auth_provider === "google") {
+      // 4. Securely hash the new password
+      const saltRounds = 11;
+      const newHash = await bcrypt.hash(newPassword, saltRounds);
+
+      // 5. Save the updated hash to the database
+      await updatePasswordHash(userId, newHash);
+
+      return res.status(200).json({
+        status: true,
+        message: "Password updated successfully.",
+      });
+    }
+
+    // Optional: Prevent them from reusing the exact same password
+    if (oldPassword === newPassword) {
+      return res.status(400).json({
+        status: false,
+        message: "Your new password cannot be identical to your old password.",
+      });
+    }
+
+    // 3. Verify that the provided old password matches the stored hash
+    const isMatch = await bcrypt.compare(oldPassword, currentHash);
+    if (!isMatch) {
+      return res.status(400).json({
+        status: false,
+        message: "The old password you entered is incorrect.",
+      });
+    }
+
+    // 4. Securely hash the new password
+    const saltRounds = 11;
+    const newHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // 5. Save the updated hash to the database
+    await updatePasswordHash(userId, newHash);
+
+    return res.status(200).json({
+      status: true,
+      message: "Password updated successfully.",
+    });
+  } catch (error) {
+    console.error("[Change Password Error]:", error);
+    return res.status(500).json({
+      status: false,
+      message:
+        "An internal server error occurred while resetting your password.",
+    });
+  }
+};
 
 module.exports = {
   initiateGoogleAuth,
@@ -339,4 +431,5 @@ module.exports = {
   resetPassword,
   realResetPassword,
   createApiKey,
+  changePassword,
 };

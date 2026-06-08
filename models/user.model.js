@@ -76,9 +76,34 @@ const generateAndStoreApiKey = async ({ userId, name }) => {
 };
 
 
+
+/**
+ * Fetches the current hashed password for a user
+ */
+const getPasswordHashById = async (userId) => {
+  const sql = `SELECT password, auth_provider FROM users WHERE id = $1::uuid;`;
+  const { rows } = await db.query(sql, [userId]);
+  return rows[0];
+};
+
+/**
+ * Updates a user's password with a new hash
+ */
+const updatePasswordHash = async (userId, newHash) => {
+  const sql = `
+    UPDATE users 
+    SET password = $2 
+    WHERE id = $1::uuid;
+  `;
+  await db.query(sql, [userId, newHash]);
+};
+
+
 module.exports = {
   getUser,
   registerUser,
   updateUserPassword,
   generateAndStoreApiKey,
+  getPasswordHashById,
+  updatePasswordHash,
 };
