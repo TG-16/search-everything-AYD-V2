@@ -6,10 +6,12 @@ const {
   getDashboardOverview,
   listWorkspaces,
   getWorkspaceTablesOverview,
+  showProfile,
 } = require("../controllers/helper.controller");
 
-router.post("/dashboard", auth, limitChecker, getDashboardOverview);
-router.post("/workspaces", auth, limitChecker, listWorkspaces);
-router.post("/tables", auth, limitChecker, getWorkspaceTablesOverview);
+router.post("/dashboard", auth, getDashboardOverview);
+router.post("/workspaces", auth, listWorkspaces);
+router.post("/tables", auth, getWorkspaceTablesOverview);
+router.get("/showProfile", auth, showProfile);
 
 module.exports = router;

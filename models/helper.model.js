@@ -119,4 +119,22 @@ const getWorkspaceSchema = async (workspaceId) => {
 };
 
 
-module.exports = { fetchDashboardMetrics, getUserWorkspaces, getWorkspaceSchema };
+/**
+ * Fetches profile information for a specific user
+ */
+const getUserProfileById = async (userId) => {
+  //on the sql there should be user's plan
+  const sql = `
+    SELECT name, email
+    FROM users 
+    WHERE id = $1::uuid;
+  `;
+  
+  const { rows } = await db.query(sql, [userId]);
+  return rows[0];
+};
+
+
+module.exports = { fetchDashboardMetrics, getUserWorkspaces, getWorkspaceSchema,
+  getUserProfileById,
+ };

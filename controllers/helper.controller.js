@@ -1,4 +1,9 @@
-const { fetchDashboardMetrics, getUserWorkspaces, getWorkspaceSchema } = require('../models/helper.model');
+const {
+  fetchDashboardMetrics,
+  getUserWorkspaces,
+  getWorkspaceSchema,
+  getUserProfileById,
+} = require("../models/helper.model");
 
 /**
  * Controller to fetch a combined utilization report for the user overview panels
@@ -16,15 +21,15 @@ const getDashboardOverview = async (req, res) => {
         storageUsedGB: metrics.totalStorageGB,
         workspacesCreated: metrics.workspaceCount,
         apiKeysGenerated: metrics.apiKeyCount,
-        requestsThisMonth: metrics.monthlyRequests // Currently using hardcoded fallback value
-      }
+        requestsThisMonth: metrics.monthlyRequests, // Currently using hardcoded fallback value
+      },
     });
-
   } catch (error) {
     console.error("[Dashboard Summary Generation Error]:", error);
     return res.status(500).json({
       status: false,
-      message: "An internal server error occurred while calculating your platform metrics."
+      message:
+        "An internal server error occurred while calculating your platform metrics.",
     });
   }
 };
@@ -42,18 +47,16 @@ const listWorkspaces = async (req, res) => {
       status: true,
       message: "User workspaces retrieved successfully.",
       count: workspaces.length,
-      data: workspaces
+      data: workspaces,
     });
-
   } catch (error) {
     console.error("[List Workspaces Error]:", error);
     return res.status(500).json({
       status: false,
-      message: "An internal server error occurred while fetching workspaces."
+      message: "An internal server error occurred while fetching workspaces.",
     });
   }
 };
-
 
 /**
  * Controller to look up and return tables and clean schemas for a workspace payload
@@ -64,7 +67,8 @@ const getWorkspaceTablesOverview = async (req, res) => {
   if (!workspaceId) {
     return res.status(400).json({
       status: false,
-      message: "Missing parameter. 'workspaceId' is required in the request body."
+      message:
+        "Missing parameter. 'workspaceId' is required in the request body.",
     });
   }
 
@@ -75,16 +79,56 @@ const getWorkspaceTablesOverview = async (req, res) => {
       status: true,
       message: "Workspace table schemas retrieved successfully.",
       count: tableInventory.length,
-      data: tableInventory
+      data: tableInventory,
     });
-
   } catch (error) {
     console.error("[Workspace Schema Error]:", error);
     return res.status(500).json({
       status: false,
-      message: "An error occurred while fetching the table schemas."
+      message: "An error occurred while fetching the table schemas.",
     });
   }
 };
 
-module.exports = { getDashboardOverview, listWorkspaces, getWorkspaceTablesOverview };
+/**
+ * Controller to display the authenticated user's profile information
+ */
+const showProfile = async (req, res) => {
+  const { id: userId } = req.user; // Context provided by your auth middleware
+
+  try {
+    const profile = await getUserProfileById(userId);
+
+    if (!profile) {
+      return res.status(404).json({
+        status: false,
+        message: "User profile could not be found.",
+      });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "User profile retrieved successfully.",
+      data: {
+        username: profile.name,
+        email: profile.email,
+        // plan: profile.plan, // returns 'free', 'business', or 'pro'
+      },
+    });
+  } catch (error) {
+    console.error("[Show Profile Error]:", error);
+    return res.status(500).json({
+      status: false,
+      message:
+        "An internal server error occurred while fetching the profile details.",
+    });
+  }
+};
+
+
+module.exports = {
+  getDashboardOverview,
+  listWorkspaces,
+  getWorkspaceTablesOverview,
+  showProfile,
+};
