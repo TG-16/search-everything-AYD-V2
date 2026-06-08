@@ -3,6 +3,7 @@ const {
   getUserWorkspaces,
   getWorkspaceSchema,
   getUserProfileById,
+  getApiKeysByUserId
 } = require("../models/helper.model");
 
 /**
@@ -126,9 +127,37 @@ const showProfile = async (req, res) => {
 };
 
 
+
+/**
+ * Controller to list all active API credentials for the authenticated user
+ */
+const listApiKeys = async (req, res) => {
+  const { id: userId } = req.user; // Context populated by your token verification middleware
+
+  try {
+    const keys = await getApiKeysByUserId(userId);
+
+    return res.status(200).json({
+      status: true,
+      message: "API keys retrieved successfully.",
+      count: keys.length,
+      data: keys
+    });
+
+  } catch (error) {
+    console.error("[Get API Keys Error]:", error);
+    return res.status(500).json({
+      status: false,
+      message: "An internal server error occurred while retrieving your API keys."
+    });
+  }
+};
+
+
 module.exports = {
   getDashboardOverview,
   listWorkspaces,
   getWorkspaceTablesOverview,
   showProfile,
+  listApiKeys,
 };

@@ -154,3 +154,176 @@ JSON
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+Build a production-ready React  frontend using pure CSS . Use a modern SaaS aesthetic, excellent visual hierarchy, responsive design, accessibility best practices, loading states, empty states. Return complete code with all components.
+
+
+
+
+
+consider the provided backend code when making the front end 
+
+create a new folder called FRONTEND and work only inside that folder, don not touch or change anything in the existing backend code
+
+
+
+i am planning to make AYD (ask your database)  DaaS ( database as a service.
+
+user can register using thier email or oauth google
+
+the main feature of this project is th hybrid search,
+
+in the landing page include about the company, docmuntation ( for developers to connect the daas to their system, it should be briefly explained every possible options and with some sample code with easly copy button for each api endpoint), pricing ( free, pro and business )
+
+and a CTA button 
+
+
+
+after they loged in the first thing the user will see will be the dash board
+
+the dash board will have 2 sections
+
+the first (w/c will be in the above ) will have these 4 things in the row horizontally
+
+a, space used( something that looks like a car speed gage meter)
+
+b, workspace created ( 2/5 something like this fraction )
+
+c, api key created ( number )
+
+d, request used ( 100/10,000 something like this fraction and along with it a vertical progress bar w/c will show how much the user uses by filling upward and changeing color accordingly)
+
+==>use the apiendpoint "/api/app/dashboard"
+
+
+
+the second section of the dashboard is for workspaces list
+
+you can use a crad or what ever you like with the wrokspace name and workspaceId dipalayed with a button that says manage and when clicked will open the related tables list of that workspace 
+
+===> use the api endpoint "/api/app/workspaces" to fetch the workspaces and "/api/app/tables" to fetch the tables of that workspace
+
+
+
+if it is the first time the user is login put a CTA that says create workspace in the dashboard inside workspace section
+
+
+
+like all saas there will be a side bar
+
+at first there will only be 
+
+dashboard
+
+workdpac
+
+(global search) w/c will be dispalayed once workspace is choosen
+
+creat api key 
+
+settings
+
+upgrade
+
+
+
+once the user chooses its wokspace either by getting inside the workspace ( from the side bar ) or by clicking the manage button on the 2nd section of the list of workspaces the follwing lists will appear in the side bar
+
+
+
+gloabl search
+
+tables
+
+inseart data
+
+read data
+
+
+
+when a user clicks tables ( from the side bar or when redirected from the wrokspace manage button) the main screen ( w/c is found on the right side of the side bar) will be divided into 2 columns 
+
+the first column will have create table button with the table name input at the top and the list of availabe tables under it
+
+==>use the api endpoint "api/crud/creatTable" to create table
+
+once the user choose the table to work on 
+
+display the columns availabel with list of their data type along side of them ( the table schema is available when you retrive the tables list ) with add column at the bottom and on the side another button that say apply schema( one thing you have to be careful on this is when a user adda a column, define its data type and select the appropriate characterstics of that column ( not null or unique) and hit apply schema you must only send the additional column only to the api endpoint  ==> "api/crud/addColumn" not the whole existing columns 
+
+
+
+you have to have somekind of state managing for the active table b/c only the second column in the main screen is changing throughtout the workflow
+
+for adding column
+
+inserting data and
+
+reading data
+
+
+
+
+
+so when a user clicks a table from the first column tables list that will be active table and if the user clicks insert data the second column will change and show an insert layout, user insert data in json format so the insert layout should consider that
+
+==> use the api endpoing "/api/crud/insertData"
+
+and when the user clicks read data on the side bar the actives table data will be displayed on the right side column ( take in consideration users might have d/t types of table so the display should handle that dynamicly ) and above the displayed table there will be filter if the table contains any number or dates and a deafult input space and along with the input a list of options/filters for that string ( you can find what kind of lists you should include in the filterBuilder.js file of the backend) and at the end of those filters a fetch button so the user can get exactlly what he wants
+
+==>use the api endpoint "api/crud/readData"
+
+
+
+and the main feature of the system gloabl search
+
+when a user clicks global search there will be a big searching fild with search button with it and next line of that a default input filed and a filter list (dropdown like read data ) and if the selected workspace's tables have a number or date data type , the column name input filed and a filter list for every column that has a data type of number or data 
+
+by default these filds ( the string input and the number and data filters are empty and will be send to the backend if filed) make as professional as possible b/c this is the main feature of the system
+
+and the search button should work when the user clicks enter on the keyboard
+
+==> use the api endpoint "api/search/globlaSearch"
+
+
+
+in the create api page 
+
+user will see its created apis in table lis and a create api button along side with insert apikey name
+
+note: after a successfull api creation my sytem only diplay the api key once so creat that ui also with easy copy api key button 
+
+
+
+when a user clicks settings the main screen ( the one w/c is on the side of the side bar) will have 
+
+change password, 
+
+show profile
+
+upgrade plan
+
+and Invoice geration (w/c i will implement later)
+
+buttons will be displayed
+
+and for each of them create their ui accordingly 
+
+in the show profile make the email and username updateable( i wll implement it later)
+
+
+
+and the last one upgrade button in the side bar
+
+create a proper ui for it that will be displayed on the main screen ( i will implement the appropriate api endpoint later)

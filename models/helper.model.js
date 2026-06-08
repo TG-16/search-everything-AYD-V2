@@ -134,7 +134,27 @@ const getUserProfileById = async (userId) => {
   return rows[0];
 };
 
+/**
+ * Fetches all API keys associated with a specific user profile
+ */
+const getApiKeysByUserId = async (userId) => {
+  const sql = `
+    SELECT 
+      id, 
+      key_hint, 
+      last_used_at, 
+      created_at 
+    FROM api_keys 
+    WHERE user_id = $1::uuid
+    ORDER BY created_at DESC;
+  `;
+
+  const { rows } = await db.query(sql, [userId]);
+  return rows;
+};
+
 
 module.exports = { fetchDashboardMetrics, getUserWorkspaces, getWorkspaceSchema,
   getUserProfileById,
+  getApiKeysByUserId,
  };
