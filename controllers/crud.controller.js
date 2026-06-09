@@ -14,6 +14,7 @@ const {
 } = require("../models/crud.model");
 const { pipeline } = require('@huggingface/transformers');
 const FilterBuilder = require('../utils/FilterBuilder');
+const { updateCachedWorkspace, deleteCachedWorkspace } = require('../utils/workspaceCache');
 
 const workspace = async (req, res) => {
   // get the user id and wokspace name
@@ -24,6 +25,8 @@ const workspace = async (req, res) => {
 
   try {
     const workspace = await createWorkspace({ userId, workspaceName });
+
+    updateCachedWorkspace(workspace.workspace_id, workspace.user_id);
 
     return res
       .status(200)

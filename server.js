@@ -9,6 +9,8 @@ const searchRoutes = require("./routes/search.route");
 const helperRoutes = require("./routes/helper.route");
 const startEmbeddingWorker = require("./utils/embadingWorker");
 const { initModels } = require("./controllers/search.controller");
+const { initializeWorkspaceCache } = require('./utils/workspaceCache');
+
 
 const port = process.env.PORT || 5000;
 
@@ -25,23 +27,30 @@ app.use("/api/app", helperRoutes);
 
 startEmbeddingWorker();
 
+initializeWorkspaceCache();
+
 console.log("[System] Initializing Neural Infrastructure...");
 
-// initModels()
-//   .then(() => {
-//     console.log('[System] All BAAI Models successfully loaded into RAM.');
+initModels()
+  .then(() => {
+    console.log("[System] All BAAI Models successfully loaded into RAM.");
 
-//     // 3. Only start accepting API traffic once the models are warm
-//     app.listen(port, () => {
-//       console.log(`[Production Host Cluster Active] Listening on port: ${port}`);
-//     });
-//   })
-//   .catch(err => {
-//     console.error("CRITICAL: Search infrastructure initialization failed:", err);
-//     process.exit(1); // Crash early if models can't load
-//   });
+    // 3. Only start accepting API traffic once the models are warm
+    app.listen(port, () => {
+      console.log(
+        `[Production Host Cluster Active] Listening on port: ${port}`,
+      );
+    });
+  })
+  .catch((err) => {
+    console.error(
+      "CRITICAL: Search infrastructure initialization failed:",
+      err,
+    );
+    process.exit(1); // Crash early if models can't load
+  });
 
-// 3. Only start accepting API traffic once the models are warm
-app.listen(port, () => {
-  console.log(`[Production Host Cluster Active] Listening on port: ${port}`);
-});
+// // 3. Only start accepting API traffic once the models are warm
+// app.listen(port, () => {
+//   console.log(`[Production Host Cluster Active] Listening on port: ${port}`);
+// });

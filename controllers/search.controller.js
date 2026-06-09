@@ -2,24 +2,26 @@ const { executeHybridQuery } = require('../models/search.model');
 const FilterBuilder = require('../utils/FilterBuilder');
 const { pipeline } = require('@huggingface/transformers');
 
-// Thread Singletons for model caching
-let embeddingPipeline = null;
-let rerankerPipeline = null;
+// Change these to hold the initialization Promise instead of the raw pipeline
+let modelsPromise = null;
 
-/**
- * Single-instance initializer for neural layers.
- * Both pipelines are upgraded to BAAI-engineered model variants.
- */
 const initModels = async () => {
-  if (!embeddingPipeline) {
-    console.log('[Search Engine] Loading Xenova/bge-small-en-v1.5...');
-    embeddingPipeline = await pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5');
+  // If an initialization is already in progress or completed, return that same promise
+  if (!modelsPromise) {
+    modelsPromise = (async () => {
+      console.log('[Search Engine] Initializing Neural Infrastructure layers...');
+      
+      console.log('[Search Engine] Loading Xenova/bge-small-en-v1.5...');
+      const encoder = await pipeline('feature-extraction', 'Xenova/bge-small-en-v1.5');
+      
+      console.log('[Search Engine] Loading Xenova/bge-reranker-base...');
+      const reranker = await pipeline('text-classification', 'Xenova/bge-reranker-base');
+      
+      return { encoder, reranker };
+    })();
   }
-  if (!rerankerPipeline) {
-    console.log('[Search Engine] Loading Xenova/bge-reranker-base...');
-    rerankerPipeline = await pipeline('text-classification', 'Xenova/bge-reranker-base');
-  }
-  return { encoder: embeddingPipeline, reranker: rerankerPipeline };
+  
+  return modelsPromise;
 };
 
 /**
