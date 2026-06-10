@@ -55,6 +55,37 @@ const monitorMiddleware = (req, res, next) => {
       }
     }
 
+
+    // --- admin routes
+    else if (path.includes('/api/admin')) {
+      severity = statusCode >= 400 ? 'MEDIUM' : 'LOW'; // Elevate failed auth security posture
+
+      switch (path) {
+        case '/api/admin/auth/register':
+          event_type = statusCode === 200 ? 'ADMIN_REGISTERED' : 'ADMIN_REGISTRATION_FAILED';
+          break;
+        case '/api/admin/auth/login':
+          event_type = statusCode === 200 ? 'ADMIN_LOGGED_IN' : 'ADMIN_LOGIN_FAILURE';
+          if (statusCode === 400) severity = 'HIGH';
+          break;
+        case '/api/admin/settings/password':
+          event_type = statusCode === 200 ? 'ADMIN_PASSWORD_RESET_COMPLETED' : 'ADMIN_PASSWORD_RESET_FAILED';
+          break;
+        case '/api/admin/manage/api-keys':
+          event_type = statusCode === 200 ? 'API_KEY_CREATED' : 'API_KEY_CREATION_FAILED';
+          break;
+        case '/api/admin//manage/workspaces':
+          event_type = statusCode === 200 ? 'WORKSPACE_CREATED' : 'WORKSPACE_CREATION_FAILED';
+          break;
+        case '/api/admin/manage/users':
+          event_type = statusCode === 200 ? 'USER_CREATED' : 'USER_CREATION_FAILED';
+          break;
+        case '/api/admin/snapshot':
+          event_type = statusCode === 200 ? 'SNAPSHOT_SUCCESSFUL' : 'SNAPSHOT_FAILED';
+          break;
+      }
+    }
+
     // --- CRUD / ENGINE WORKSPACE ROUTES ---
     else if (path.includes('/api/crud')) {
       severity = statusCode >= 400 ? 'MEDIUM' : 'LOW';
