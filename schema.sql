@@ -256,3 +256,50 @@ CREATE TABLE api_keys (
 );
 
 CREATE INDEX idx_api_keys_hash ON api_keys(key_hash) WHERE is_revoked = FALSE;
+
+
+
+
+
+-- event log creation and indexing
+CREATE TABLE event_log (
+    -- Unique internal identifier using native Postgres UUID v4 generation
+    event_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    
+    -- Tenant & Identity tracking (can be NULL if authentication or context fails)
+    workspace_id UUID NULL,
+    user_id UUID NULL,                      -- Adjusted to INT matching standard serial or identity IDs
+    
+    -- Metric classification vectors
+    event_type VARCHAR(100) NOT NULL,
+    endpoint VARCHAR(255) NOT NULL,
+    status_code SMALLINT NOT NULL,         -- SMALLINT saves storage overhead over INT for 3-digit status codes
+    duration_ms NUMERIC(10, 2) NOT NULL,   -- Supports precise decimals (e.g., 142.55ms)
+    
+    -- Rich payload audit store (Index metadata variables easily)
+    meta_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    
+    -- Network tracking and timeline records
+    ip_address VARCHAR(45) NULL,           -- Length 45 comfortably accommodates IPv4 and long IPv6 strings
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+
+
+-- 1. Optimize timeline lookups (e.g., Request Count/day, latency averages over the last 24 hours)
+CREATE INDEX idx_event_log_created_at 
+ON event_log (created_at DESC);
+
+-- 2. Optimize user-side metrics and isolation validation (WHERE workspace_id = 'x')
+CREATE INDEX idx_event_log_workspace 
+ON event_log (workspace_id) 
+WHERE workspace_id IS NOT NULL; -- Partial index avoids indexing null guest auth rows to save disk space
+
+-- 3. Optimize SIEM event counters and breakdown charts (GROUP BY event_type, status_code)
+CREATE INDEX idx_event_log_type_status 
+ON event_log (event_type, status_code);
+
+-- 4. Advanced JSONB Indexing: Optimize looking into your custom metadata objects
+-- This allows your alerting engine to search internally for {"severity": "CRITICAL"} instantly
+CREATE INDEX idx_event_log_meta_severity 
+ON event_log USING gin ((meta_data -> 'severity'));
