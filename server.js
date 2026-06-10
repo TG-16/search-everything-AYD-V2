@@ -36,16 +36,34 @@ initializeWorkspaceCache();
 
 console.log("[System] Initializing Neural Infrastructure...");
 
-initModels()
+// initModels()
+//   .then(() => {
+//     console.log("[System] All BAAI Models successfully loaded into RAM.");
+
+//     // 3. Only start accepting API traffic once the models are warm
+//     app.listen(port, () => {
+//       console.log(
+//         `[Production Host Cluster Active] Listening on port: ${port}`,
+//       );
+//     });
+//   })
+//   .catch((err) => {
+//     console.error(
+//       "CRITICAL: Search infrastructure initialization failed:",
+//       err,
+//     );
+//     process.exit(1); // Crash early if models can't load
+//   });
+
+// 3. Only start accepting API traffic once the models are warm
+app.listen(port, () => {
+  console.log(`[Production Host Cluster Active] Listening on port: ${port}`);
+
+
+  initModels()
   .then(() => {
     console.log("[System] All BAAI Models successfully loaded into RAM.");
 
-    // 3. Only start accepting API traffic once the models are warm
-    app.listen(port, () => {
-      console.log(
-        `[Production Host Cluster Active] Listening on port: ${port}`,
-      );
-    });
   })
   .catch((err) => {
     console.error(
@@ -54,8 +72,4 @@ initModels()
     );
     process.exit(1); // Crash early if models can't load
   });
-
-// // 3. Only start accepting API traffic once the models are warm
-// app.listen(port, () => {
-//   console.log(`[Production Host Cluster Active] Listening on port: ${port}`);
-// });
+});
