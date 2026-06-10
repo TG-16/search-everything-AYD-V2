@@ -8,6 +8,7 @@ const authRoutes = require("./routes/auth.route");
 const crudRoutes = require("./routes/crud.route");
 const searchRoutes = require("./routes/search.route");
 const helperRoutes = require("./routes/helper.route");
+const adminRoutes = require("./routes/admin.route");
 const startEmbeddingWorker = require("./utils/embadingWorker");
 const { initModels } = require("./controllers/search.controller");
 const { initializeWorkspaceCache } = require('./utils/workspaceCache');
@@ -27,6 +28,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/crud", crudRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/app", helperRoutes);
+app.use("/api/admin", adminRoutes);
 
 startEmbeddingWorker();
 
