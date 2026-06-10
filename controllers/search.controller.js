@@ -1,6 +1,8 @@
 const { executeHybridQuery } = require('../models/search.model');
 const FilterBuilder = require('../utils/FilterBuilder');
 const { pipeline } = require('@huggingface/transformers');
+const path = require('path'); // should be removed
+
 
 // Change these to hold the initialization Promise instead of the raw pipeline
 let modelsPromise = null;
